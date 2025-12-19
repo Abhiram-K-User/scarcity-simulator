@@ -252,6 +252,28 @@ export const useSimulation = () => {
     step();
   }, [isRunning, params.initialInfected, step]);
 
+  const toggleNodeProtection = useCallback((nodeId: string) => {
+    setNodes(prevNodes => {
+      const nodeIndex = prevNodes.findIndex(n => n.id === nodeId);
+      if (nodeIndex === -1) return prevNodes;
+      
+      const node = prevNodes[nodeIndex];
+      const newNodes = [...prevNodes];
+      
+      // Only allow toggling susceptible to protected or protected to susceptible
+      if (node.state === 'susceptible') {
+        const currentlyProtected = prevNodes.filter(n => n.state === 'protected').length;
+        if (currentlyProtected < params.totalResources) {
+          newNodes[nodeIndex] = { ...node, state: 'protected' };
+        }
+      } else if (node.state === 'protected') {
+        newNodes[nodeIndex] = { ...node, state: 'susceptible' };
+      }
+      
+      return newNodes;
+    });
+  }, [params.totalResources]);
+
   useEffect(() => {
     return () => {
       if (intervalRef.current) {
@@ -281,5 +303,6 @@ export const useSimulation = () => {
     pause,
     reset,
     stepOnce,
+    toggleNodeProtection,
   };
 };
