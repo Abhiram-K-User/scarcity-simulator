@@ -19,6 +19,7 @@ const Index = () => {
     pause,
     reset,
     stepOnce,
+    toggleNodeProtection,
   } = useSimulation();
 
   return (
@@ -58,7 +59,7 @@ const Index = () => {
                 </h2>
               </div>
               <div className="aspect-[16/10]">
-                <NetworkGraph nodes={nodes} edges={edges} />
+                <NetworkGraph nodes={nodes} edges={edges} onNodeClick={toggleNodeProtection} />
               </div>
             </div>
 
