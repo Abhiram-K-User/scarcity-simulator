@@ -1,5 +1,5 @@
 import { SimulationMetrics, HistoryPoint, Snapshot } from '@/types/simulation';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
+import { XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart, Line } from 'recharts';
 
 interface MetricsDashboardProps {
   metrics: SimulationMetrics;
@@ -21,6 +21,13 @@ const stateColors = {
   atRisk: '#C9A857',
   infected: '#B5636A',
   collapsed: '#505A64',
+  recovered: '#5A9A6C',
+};
+
+const formatNumber = (num: number): string => {
+  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+  return num.toString();
 };
 
 const MetricCard = ({ label, value, color, subtext }: MetricCardProps) => (
@@ -71,15 +78,43 @@ export const MetricsDashboard = ({
   snapshots,
   onTakeSnapshot 
 }: MetricsDashboardProps) => {
-  const totalNodes = metrics.totalInfected + metrics.totalHealthy + metrics.totalAtRisk + metrics.totalCollapsed;
-  
   return (
     <div className="space-y-4">
       {/* Stress Bar */}
       <StressBar stress={metrics.systemStress} />
 
+      {/* Population Stats */}
       <div className="border-t border-border pt-4">
-        <h3 className="analytical-header mb-2.5">Current State</h3>
+        <h3 className="analytical-header mb-2.5">Population Impact</h3>
+        <div className="grid grid-cols-2 gap-2">
+          <MetricCard 
+            label="Infected Pop" 
+            value={formatNumber(metrics.totalInfectedPop)} 
+            color={stateColors.infected}
+            subtext="currently infected"
+          />
+          <MetricCard 
+            label="Total Deaths" 
+            value={formatNumber(metrics.totalDeaths)} 
+            color={stateColors.collapsed}
+            subtext="cumulative"
+          />
+          <MetricCard 
+            label="Recoveries" 
+            value={formatNumber(metrics.totalRecoveries)} 
+            color={stateColors.recovered}
+            subtext="cumulative"
+          />
+          <MetricCard 
+            label="Total Pop" 
+            value={formatNumber(metrics.totalPopulation)} 
+            subtext="all regions"
+          />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <h3 className="analytical-header mb-2.5">Region State</h3>
         <div className="grid grid-cols-2 gap-2">
           <MetricCard 
             label="Healthy" 
@@ -141,14 +176,18 @@ export const MetricsDashboard = ({
 
       {history.length > 1 && (
         <div className="border-t border-border pt-4">
-          <h3 className="analytical-header mb-2.5">Infection Curve</h3>
-          <div className="h-32 -ml-2">
+          <h3 className="analytical-header mb-2.5">Trends</h3>
+          <div className="h-36 -ml-2">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history}>
                 <defs>
                   <linearGradient id="infectedGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.2}/>
                     <stop offset="95%" stopColor={stateColors.infected} stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="deathsGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={stateColors.collapsed} stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor={stateColors.collapsed} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <XAxis 
@@ -161,7 +200,8 @@ export const MetricsDashboard = ({
                   tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
                   axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
                   tickLine={false}
-                  width={25}
+                  width={35}
+                  tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -171,22 +211,31 @@ export const MetricsDashboard = ({
                     fontSize: '11px',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                   }}
+                  formatter={(value: number, name: string) => [formatNumber(value), name]}
                 />
                 <Area 
                   type="monotone" 
-                  dataKey="infected" 
+                  dataKey="infectedPop" 
                   stroke={stateColors.infected}
                   fill="url(#infectedGradient)"
                   strokeWidth={1.5}
-                  name="Infected"
+                  name="Infected Pop"
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="collapsed" 
+                  dataKey="deaths" 
                   stroke={stateColors.collapsed}
                   strokeWidth={1.5}
                   dot={false}
-                  name="Collapsed"
+                  name="Deaths"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="recoveries" 
+                  stroke={stateColors.recovered}
+                  strokeWidth={1.5}
+                  dot={false}
+                  name="Recoveries"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -213,7 +262,7 @@ export const MetricsDashboard = ({
               <div key={i} className="flex items-center justify-between text-xs py-1.5 px-2 bg-secondary/30 rounded">
                 <span className="text-muted-foreground">{snap.label}</span>
                 <span className="font-mono text-muted-foreground">
-                  {snap.metrics.totalInfected} inf
+                  {formatNumber(snap.metrics.totalDeaths)} deaths
                 </span>
               </div>
             ))}

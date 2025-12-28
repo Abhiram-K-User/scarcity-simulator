@@ -333,11 +333,11 @@ export const NetworkGraph = ({
           <p className="text-xs" style={{ color: stateColors[tooltip.node.state] }}>
             {stateLabels[tooltip.node.state]}
           </p>
-          {tooltip.node.resourceAllocated > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Resources: {tooltip.node.resourceAllocated}
-            </p>
-          )}
+          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+            <p>Infected: {(tooltip.node.populationStats.infected / 1000).toFixed(1)}K</p>
+            <p>Deaths: {tooltip.node.cumulativeDeaths.toLocaleString()}</p>
+            <p>Recovered: {tooltip.node.cumulativeRecoveries.toLocaleString()}</p>
+          </div>
           <p className="text-xs text-muted-foreground mt-1 opacity-60">
             Click for details
           </p>
