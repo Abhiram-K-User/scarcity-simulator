@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
-import { Play, Pause, RotateCcw, StepForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, StepForward, Layers } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface SimulationControlsProps {
   isRunning: boolean;
@@ -8,6 +10,8 @@ interface SimulationControlsProps {
   onPause: () => void;
   onReset: () => void;
   onStep: () => void;
+  showHeatmap: boolean;
+  onToggleHeatmap: (show: boolean) => void;
 }
 
 export const SimulationControls = ({
@@ -17,44 +21,62 @@ export const SimulationControls = ({
   onPause,
   onReset,
   onStep,
+  showHeatmap,
+  onToggleHeatmap,
 }: SimulationControlsProps) => {
   return (
-    <div className="flex gap-2">
-      {(!isRunning || isPaused) ? (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        {!isRunning || isPaused ? (
+          <Button 
+            onClick={onStart} 
+            size="sm"
+            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            <Play className="w-3.5 h-3.5 mr-1.5" />
+            {isPaused ? 'Resume' : 'Start'}
+          </Button>
+        ) : (
+          <Button 
+            onClick={onPause} 
+            variant="secondary"
+            size="sm"
+            className="flex-1"
+          >
+            <Pause className="w-3.5 h-3.5 mr-1.5" />
+            Pause
+          </Button>
+        )}
+        
         <Button 
-          onClick={onStart} 
-          className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
+          onClick={onStep} 
+          variant="outline"
+          size="sm"
+          title="Step forward"
         >
-          <Play className="w-4 h-4 mr-2" />
-          {isPaused ? 'Resume' : 'Start'}
+          <StepForward className="w-3.5 h-3.5" />
         </Button>
-      ) : (
+        
         <Button 
-          onClick={onPause} 
-          variant="secondary"
-          className="flex-1"
+          onClick={onReset} 
+          variant="outline"
+          size="sm"
+          title="Reset simulation"
         >
-          <Pause className="w-4 h-4 mr-2" />
-          Pause
+          <RotateCcw className="w-3.5 h-3.5" />
         </Button>
-      )}
-      
-      <Button 
-        onClick={onStep} 
-        variant="outline"
-        disabled={isRunning && !isPaused}
-        title="Step forward"
-      >
-        <StepForward className="w-4 h-4" />
-      </Button>
-      
-      <Button 
-        onClick={onReset} 
-        variant="outline"
-        title="Reset simulation"
-      >
-        <RotateCcw className="w-4 h-4" />
-      </Button>
+      </div>
+
+      <div className="flex items-center justify-between pt-2 border-t border-border">
+        <div className="flex items-center gap-2">
+          <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+          <Label className="text-xs text-muted-foreground">Risk Heatmap</Label>
+        </div>
+        <Switch
+          checked={showHeatmap}
+          onCheckedChange={onToggleHeatmap}
+        />
+      </div>
     </div>
   );
 };
