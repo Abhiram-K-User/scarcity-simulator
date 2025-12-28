@@ -1,5 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot } from '@/types/simulation';
+import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot, PopulationStats } from '@/types/simulation';
+
+const createDefaultPopStats = (population: number): PopulationStats => ({
+  healthy: population,
+  infected: 0,
+  recovered: 0,
+  dead: 0,
+});
 
 const generateInitialNodes = (count: number = 16): SimulationNode[] => {
   const names = [
@@ -9,18 +16,24 @@ const generateInitialNodes = (count: number = 16): SimulationNode[] => {
     'Area Nu', 'Hub Xi', 'Node Omicron', 'Cluster Pi'
   ];
   
-  return Array.from({ length: count }, (_, i) => ({
-    id: `node-${i}`,
-    name: names[i] || `Region ${i + 1}`,
-    population: Math.floor(Math.random() * 900000) + 100000,
-    state: 'healthy' as NodeState,
-    priority: Math.random(),
-    x: Math.random() * 600 + 100,
-    y: Math.random() * 400 + 50,
-    history: [],
-    resourceAllocated: 0,
-    riskScore: 0,
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const population = Math.floor(Math.random() * 900000) + 100000;
+    return {
+      id: `node-${i}`,
+      name: names[i] || `Region ${i + 1}`,
+      population,
+      state: 'healthy' as NodeState,
+      priority: Math.random(),
+      x: Math.random() * 600 + 100,
+      y: Math.random() * 400 + 50,
+      history: [],
+      resourceAllocated: 0,
+      riskScore: 0,
+      populationStats: createDefaultPopStats(population),
+      cumulativeDeaths: 0,
+      cumulativeRecoveries: 0,
+    };
+  });
 };
 
 const generateEdges = (nodes: SimulationNode[]): SimulationEdge[] => {
@@ -52,6 +65,7 @@ const generateEdges = (nodes: SimulationNode[]): SimulationEdge[] => {
 const defaultParams: SimulationParams = {
   infectionRate: 0.12,
   recoveryRate: 0.06,
+  deathRate: 0.02,
   totalResources: 4,
   priorityWeight: 0.5,
   initialInfected: 2,
@@ -70,6 +84,10 @@ const defaultMetrics: SimulationMetrics = {
   peakTime: 0,
   currentTime: 0,
   systemStress: 0,
+  totalPopulation: 0,
+  totalInfectedPop: 0,
+  totalDeaths: 0,
+  totalRecoveries: 0,
 };
 
 export const useSimulation = () => {
@@ -102,6 +120,12 @@ export const useSimulation = () => {
     const resourcesUsed = currentNodes.reduce((sum, n) => sum + n.resourceAllocated, 0);
     const stress = calculateStress(currentNodes);
     
+    // Aggregate population-level stats
+    const totalPopulation = currentNodes.reduce((sum, n) => sum + n.population, 0);
+    const totalInfectedPop = currentNodes.reduce((sum, n) => sum + n.populationStats.infected, 0);
+    const totalDeaths = currentNodes.reduce((sum, n) => sum + n.cumulativeDeaths, 0);
+    const totalRecoveries = currentNodes.reduce((sum, n) => sum + n.cumulativeRecoveries, 0);
+    
     return {
       totalInfected: infected,
       totalHealthy: healthy,
@@ -112,6 +136,10 @@ export const useSimulation = () => {
       peakTime: infected > metrics.peakInfection ? timeRef.current : metrics.peakTime,
       currentTime: timeRef.current,
       systemStress: stress,
+      totalPopulation,
+      totalInfectedPop,
+      totalDeaths,
+      totalRecoveries,
     };
   }, [metrics.peakInfection, metrics.peakTime, calculateStress]);
 
@@ -146,7 +174,14 @@ export const useSimulation = () => {
             newNodes[index] = { 
               ...newNodes[index], 
               state: 'at-risk',
-              history: [...node.history, { time: timeRef.current, state: 'at-risk', resourceAllocated: node.resourceAllocated }]
+              history: [...node.history, { 
+                time: timeRef.current, 
+                state: 'at-risk', 
+                resourceAllocated: node.resourceAllocated,
+                infectedPop: node.populationStats.infected,
+                deaths: node.cumulativeDeaths,
+                recoveries: node.cumulativeRecoveries,
+              }]
             };
           }
         }
@@ -172,44 +207,103 @@ export const useSimulation = () => {
         if (nodeIndex !== -1) {
           const delay = params.delayedEffects ? (Math.random() < 0.4) : false;
           if (!delay) {
+            const node = newNodes[nodeIndex];
             newNodes[nodeIndex] = { 
-              ...newNodes[nodeIndex], 
+              ...node, 
               resourceAllocated: 1,
               state: 'healthy',
-              history: [...newNodes[nodeIndex].history, { time: timeRef.current, state: 'healthy', resourceAllocated: 1 }]
+              history: [...node.history, { 
+                time: timeRef.current, 
+                state: 'healthy', 
+                resourceAllocated: 1,
+                infectedPop: node.populationStats.infected,
+                deaths: node.cumulativeDeaths,
+                recoveries: node.cumulativeRecoveries,
+              }]
             };
           }
         }
       }
       
-      // Process infections
+      // Process infections, recoveries, and deaths at population level
       newNodes.forEach((node, index) => {
         const uncertainty = params.uncertaintyEnabled ? (Math.random() * 0.1 - 0.05) : 0;
+        const currentStats = { ...node.populationStats };
+        let newDeaths = 0;
+        let newRecoveries = 0;
         
-        if (node.state === 'infected') {
-          // Check for collapse (prolonged infection)
+        if (node.state === 'infected' || node.populationStats.infected > 0) {
+          // Process deaths from infected population
+          const deathCount = Math.floor(currentStats.infected * (params.deathRate + uncertainty * 0.01));
+          if (deathCount > 0 && currentStats.infected > 0) {
+            newDeaths = Math.min(deathCount, currentStats.infected);
+            currentStats.infected -= newDeaths;
+            currentStats.dead += newDeaths;
+          }
+          
+          // Process recoveries from infected population
+          const recoveryCount = Math.floor(currentStats.infected * (params.recoveryRate + uncertainty));
+          if (recoveryCount > 0 && currentStats.infected > 0) {
+            newRecoveries = Math.min(recoveryCount, currentStats.infected);
+            currentStats.infected -= newRecoveries;
+            currentStats.recovered += newRecoveries;
+          }
+          
+          // Check for collapse (prolonged infection or high death rate)
           if (node.infectedAt && timeRef.current - node.infectedAt > 5) {
-            if (Math.random() < 0.2) {
+            if (Math.random() < 0.2 || currentStats.dead > node.population * 0.3) {
               newNodes[index] = { 
                 ...node, 
                 state: 'collapsed', 
                 collapsedAt: timeRef.current,
-                history: [...node.history, { time: timeRef.current, state: 'collapsed', resourceAllocated: node.resourceAllocated }]
+                populationStats: currentStats,
+                cumulativeDeaths: node.cumulativeDeaths + newDeaths,
+                cumulativeRecoveries: node.cumulativeRecoveries + newRecoveries,
+                history: [...node.history, { 
+                  time: timeRef.current, 
+                  state: 'collapsed', 
+                  resourceAllocated: node.resourceAllocated,
+                  infectedPop: currentStats.infected,
+                  deaths: node.cumulativeDeaths + newDeaths,
+                  recoveries: node.cumulativeRecoveries + newRecoveries,
+                }]
               };
               return;
             }
           }
           
-          // Try to recover
-          if (Math.random() < params.recoveryRate + uncertainty) {
+          // Check if region recovered (no more infected)
+          if (currentStats.infected === 0 && node.state === 'infected') {
             newNodes[index] = { 
               ...node, 
               state: 'healthy',
               infectedAt: undefined,
-              history: [...node.history, { time: timeRef.current, state: 'healthy', resourceAllocated: node.resourceAllocated }]
+              populationStats: currentStats,
+              cumulativeDeaths: node.cumulativeDeaths + newDeaths,
+              cumulativeRecoveries: node.cumulativeRecoveries + newRecoveries,
+              history: [...node.history, { 
+                time: timeRef.current, 
+                state: 'healthy', 
+                resourceAllocated: node.resourceAllocated,
+                infectedPop: 0,
+                deaths: node.cumulativeDeaths + newDeaths,
+                recoveries: node.cumulativeRecoveries + newRecoveries,
+              }]
             };
+            return;
           }
-        } else if (node.state === 'at-risk' && node.resourceAllocated === 0) {
+          
+          // Update node with new population stats
+          newNodes[index] = {
+            ...node,
+            populationStats: currentStats,
+            cumulativeDeaths: node.cumulativeDeaths + newDeaths,
+            cumulativeRecoveries: node.cumulativeRecoveries + newRecoveries,
+          };
+        }
+        
+        // Spread infection within node and from neighbors
+        if (node.state === 'at-risk' && node.resourceAllocated === 0) {
           const neighbors = adjacencyList.get(node.id) || [];
           const infectedNeighbors = neighbors.filter(
             nId => newNodes.find(n => n.id === nId)?.state === 'infected'
@@ -218,13 +312,43 @@ export const useSimulation = () => {
           if (infectedNeighbors > 0) {
             const infectionProb = 1 - Math.pow(1 - (params.infectionRate + uncertainty), infectedNeighbors);
             if (Math.random() < infectionProb) {
+              // Calculate initial infected population
+              const initialInfectedPop = Math.floor(currentStats.healthy * (0.05 + Math.random() * 0.1));
+              currentStats.healthy -= initialInfectedPop;
+              currentStats.infected += initialInfectedPop;
+              
               newNodes[index] = { 
                 ...node, 
                 state: 'infected',
                 infectedAt: timeRef.current,
-                history: [...node.history, { time: timeRef.current, state: 'infected', resourceAllocated: node.resourceAllocated }]
+                populationStats: currentStats,
+                history: [...node.history, { 
+                  time: timeRef.current, 
+                  state: 'infected', 
+                  resourceAllocated: node.resourceAllocated,
+                  infectedPop: currentStats.infected,
+                  deaths: node.cumulativeDeaths,
+                  recoveries: node.cumulativeRecoveries,
+                }]
               };
             }
+          }
+        }
+        
+        // Spread infection within already infected nodes
+        if (newNodes[index].state === 'infected') {
+          const nodeData = newNodes[index];
+          const stats = { ...nodeData.populationStats };
+          // Spread within population
+          const newInfections = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 2);
+          if (newInfections > 0) {
+            const actualNew = Math.min(newInfections, stats.healthy);
+            stats.healthy -= actualNew;
+            stats.infected += actualNew;
+            newNodes[index] = {
+              ...nodeData,
+              populationStats: stats,
+            };
           }
         }
       });
@@ -241,6 +365,9 @@ export const useSimulation = () => {
         atRisk: newMetrics.totalAtRisk,
         collapsed: newMetrics.totalCollapsed,
         stress: newMetrics.systemStress,
+        deaths: newMetrics.totalDeaths,
+        recoveries: newMetrics.totalRecoveries,
+        infectedPop: newMetrics.totalInfectedPop,
       }]);
       
       return newNodes;
@@ -257,11 +384,26 @@ export const useSimulation = () => {
         for (let i = 0; i < params.initialInfected && i < shuffled.length; i++) {
           const idx = newNodes.findIndex(n => n.id === shuffled[i].id);
           if (idx !== -1) {
+            const node = newNodes[idx];
+            // Initialize with some infected population
+            const initialInfected = Math.floor(node.population * 0.05);
+            const newStats = { ...node.populationStats };
+            newStats.healthy -= initialInfected;
+            newStats.infected = initialInfected;
+            
             newNodes[idx] = { 
-              ...newNodes[idx], 
+              ...node, 
               state: 'infected',
               infectedAt: 0,
-              history: [{ time: 0, state: 'infected', resourceAllocated: 0 }]
+              populationStats: newStats,
+              history: [{ 
+                time: 0, 
+                state: 'infected', 
+                resourceAllocated: 0,
+                infectedPop: initialInfected,
+                deaths: 0,
+                recoveries: 0,
+              }]
             };
           }
         }
@@ -274,6 +416,9 @@ export const useSimulation = () => {
           atRisk: 0,
           collapsed: 0,
           stress: initialMetrics.systemStress,
+          deaths: 0,
+          recoveries: 0,
+          infectedPop: initialMetrics.totalInfectedPop,
         }]);
         return newNodes;
       });
@@ -319,11 +464,25 @@ export const useSimulation = () => {
         for (let i = 0; i < params.initialInfected && i < shuffled.length; i++) {
           const idx = newNodes.findIndex(n => n.id === shuffled[i].id);
           if (idx !== -1) {
+            const node = newNodes[idx];
+            const initialInfected = Math.floor(node.population * 0.05);
+            const newStats = { ...node.populationStats };
+            newStats.healthy -= initialInfected;
+            newStats.infected = initialInfected;
+            
             newNodes[idx] = { 
-              ...newNodes[idx], 
+              ...node, 
               state: 'infected',
               infectedAt: 0,
-              history: [{ time: 0, state: 'infected', resourceAllocated: 0 }]
+              populationStats: newStats,
+              history: [{ 
+                time: 0, 
+                state: 'infected', 
+                resourceAllocated: 0,
+                infectedPop: initialInfected,
+                deaths: 0,
+                recoveries: 0,
+              }]
             };
           }
         }

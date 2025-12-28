@@ -4,6 +4,16 @@ export interface NodeHistory {
   time: number;
   state: NodeState;
   resourceAllocated: number;
+  infectedPop: number;
+  deaths: number;
+  recoveries: number;
+}
+
+export interface PopulationStats {
+  healthy: number;
+  infected: number;
+  recovered: number;
+  dead: number;
 }
 
 export interface SimulationNode {
@@ -19,6 +29,10 @@ export interface SimulationNode {
   riskScore: number;
   infectedAt?: number;
   collapsedAt?: number;
+  // Population-level tracking
+  populationStats: PopulationStats;
+  cumulativeDeaths: number;
+  cumulativeRecoveries: number;
 }
 
 export interface SimulationEdge {
@@ -30,6 +44,7 @@ export interface SimulationEdge {
 export interface SimulationParams {
   infectionRate: number;
   recoveryRate: number;
+  deathRate: number;
   totalResources: number;
   priorityWeight: number;
   initialInfected: number;
@@ -48,6 +63,11 @@ export interface SimulationMetrics {
   peakTime: number;
   currentTime: number;
   systemStress: number;
+  // Population-level aggregates
+  totalPopulation: number;
+  totalInfectedPop: number;
+  totalDeaths: number;
+  totalRecoveries: number;
 }
 
 export interface HistoryPoint {
@@ -57,6 +77,9 @@ export interface HistoryPoint {
   atRisk: number;
   collapsed: number;
   stress: number;
+  deaths: number;
+  recoveries: number;
+  infectedPop: number;
 }
 
 export interface Snapshot {

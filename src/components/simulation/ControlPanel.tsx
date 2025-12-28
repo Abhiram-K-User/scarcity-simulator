@@ -76,6 +76,16 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             disabled={disabled}
             description="Recovery probability per step"
           />
+          <SliderControl
+            label="Death Rate"
+            value={params.deathRate}
+            min={0.001}
+            max={0.1}
+            step={0.001}
+            onChange={(v) => updateParam('deathRate', v)}
+            disabled={disabled}
+            description="Mortality rate among infected"
+          />
         </div>
       </div>
 
