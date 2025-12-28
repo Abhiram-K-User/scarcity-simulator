@@ -1,22 +1,25 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState } from '@/types/simulation';
+import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot } from '@/types/simulation';
 
-const generateInitialNodes = (count: number = 20): SimulationNode[] => {
+const generateInitialNodes = (count: number = 16): SimulationNode[] => {
   const names = [
-    'Metro Alpha', 'District Beta', 'Zone Gamma', 'Sector Delta', 'Region Epsilon',
-    'Area Zeta', 'Hub Eta', 'Node Theta', 'Cluster Iota', 'Zone Kappa',
-    'Sector Lambda', 'Region Mu', 'Area Nu', 'Hub Xi', 'Node Omicron',
-    'Cluster Pi', 'Zone Rho', 'Sector Sigma', 'Region Tau', 'Area Upsilon'
+    'Metro Alpha', 'District Beta', 'Zone Gamma', 'Sector Delta', 
+    'Region Epsilon', 'Area Zeta', 'Hub Eta', 'Node Theta', 
+    'Cluster Iota', 'Zone Kappa', 'Sector Lambda', 'Region Mu', 
+    'Area Nu', 'Hub Xi', 'Node Omicron', 'Cluster Pi'
   ];
   
   return Array.from({ length: count }, (_, i) => ({
     id: `node-${i}`,
     name: names[i] || `Region ${i + 1}`,
     population: Math.floor(Math.random() * 900000) + 100000,
-    state: 'susceptible' as NodeState,
+    state: 'healthy' as NodeState,
     priority: Math.random(),
     x: Math.random() * 600 + 100,
     y: Math.random() * 400 + 50,
+    history: [],
+    resourceAllocated: 0,
+    riskScore: 0,
   }));
 };
 
@@ -24,17 +27,14 @@ const generateEdges = (nodes: SimulationNode[]): SimulationEdge[] => {
   const edges: SimulationEdge[] = [];
   const nodeCount = nodes.length;
   
-  // Create a connected graph with some additional random edges
   for (let i = 0; i < nodeCount; i++) {
-    // Connect to next node (circular)
     edges.push({
       source: nodes[i].id,
       target: nodes[(i + 1) % nodeCount].id,
       weight: Math.random() * 0.5 + 0.3,
     });
     
-    // Add some random connections
-    if (Math.random() > 0.5) {
+    if (Math.random() > 0.6) {
       const randomTarget = Math.floor(Math.random() * nodeCount);
       if (randomTarget !== i && randomTarget !== (i + 1) % nodeCount) {
         edges.push({
@@ -50,23 +50,26 @@ const generateEdges = (nodes: SimulationNode[]): SimulationEdge[] => {
 };
 
 const defaultParams: SimulationParams = {
-  infectionRate: 0.15,
-  recoveryRate: 0.08,
-  totalResources: 5,
+  infectionRate: 0.12,
+  recoveryRate: 0.06,
+  totalResources: 4,
   priorityWeight: 0.5,
   initialInfected: 2,
-  timeStepSpeed: 500,
+  timeStepSpeed: 800,
+  uncertaintyEnabled: false,
+  delayedEffects: false,
 };
 
 const defaultMetrics: SimulationMetrics = {
   totalInfected: 0,
-  totalRecovered: 0,
-  totalProtected: 0,
-  totalSusceptible: 0,
+  totalHealthy: 0,
+  totalAtRisk: 0,
+  totalCollapsed: 0,
   resourcesUsed: 0,
   peakInfection: 0,
   peakTime: 0,
   currentTime: 0,
+  systemStress: 0,
 };
 
 export const useSimulation = () => {
@@ -75,36 +78,48 @@ export const useSimulation = () => {
   const [params, setParams] = useState<SimulationParams>(defaultParams);
   const [metrics, setMetrics] = useState<SimulationMetrics>(defaultMetrics);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<SimulationNode | null>(null);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeRef = useRef(0);
 
+  const calculateStress = useCallback((currentNodes: SimulationNode[]): number => {
+    const infected = currentNodes.filter(n => n.state === 'infected' || n.state === 'collapsed').length;
+    const total = currentNodes.length;
+    const atRisk = currentNodes.filter(n => n.state === 'at-risk').length;
+    return Math.min(1, (infected * 2 + atRisk) / (total * 2));
+  }, []);
+
   const calculateMetrics = useCallback((currentNodes: SimulationNode[]): SimulationMetrics => {
     const infected = currentNodes.filter(n => n.state === 'infected').length;
-    const recovered = currentNodes.filter(n => n.state === 'recovered').length;
-    const protected_ = currentNodes.filter(n => n.state === 'protected').length;
-    const susceptible = currentNodes.filter(n => n.state === 'susceptible').length;
+    const healthy = currentNodes.filter(n => n.state === 'healthy').length;
+    const atRisk = currentNodes.filter(n => n.state === 'at-risk').length;
+    const collapsed = currentNodes.filter(n => n.state === 'collapsed').length;
+    const resourcesUsed = currentNodes.reduce((sum, n) => sum + n.resourceAllocated, 0);
+    const stress = calculateStress(currentNodes);
     
     return {
       totalInfected: infected,
-      totalRecovered: recovered,
-      totalProtected: protected_,
-      totalSusceptible: susceptible,
-      resourcesUsed: protected_,
+      totalHealthy: healthy,
+      totalAtRisk: atRisk,
+      totalCollapsed: collapsed,
+      resourcesUsed,
       peakInfection: Math.max(metrics.peakInfection, infected),
       peakTime: infected > metrics.peakInfection ? timeRef.current : metrics.peakTime,
       currentTime: timeRef.current,
+      systemStress: stress,
     };
-  }, [metrics.peakInfection, metrics.peakTime]);
+  }, [metrics.peakInfection, metrics.peakTime, calculateStress]);
 
   const step = useCallback(() => {
     setNodes(prevNodes => {
       const newNodes = [...prevNodes];
       const adjacencyList = new Map<string, string[]>();
       
-      // Build adjacency list
       edges.forEach(edge => {
         if (!adjacencyList.has(edge.source)) adjacencyList.set(edge.source, []);
         if (!adjacencyList.has(edge.target)) adjacencyList.set(edge.target, []);
@@ -112,11 +127,35 @@ export const useSimulation = () => {
         adjacencyList.get(edge.target)!.push(edge.source);
       });
       
-      // Calculate which nodes to protect based on priority and resources
-      const susceptibleNodes = newNodes
-        .filter(n => n.state === 'susceptible')
+      // Calculate risk scores for healthy nodes
+      newNodes.forEach((node, index) => {
+        if (node.state === 'healthy') {
+          const neighbors = adjacencyList.get(node.id) || [];
+          const infectedNeighbors = neighbors.filter(
+            nId => {
+              const n = newNodes.find(n => n.id === nId);
+              return n?.state === 'infected' || n?.state === 'at-risk';
+            }
+          ).length;
+          
+          const riskScore = infectedNeighbors / Math.max(1, neighbors.length);
+          newNodes[index] = { ...node, riskScore };
+          
+          // Move to at-risk if neighbors are infected
+          if (infectedNeighbors > 0 && Math.random() < 0.3) {
+            newNodes[index] = { 
+              ...newNodes[index], 
+              state: 'at-risk',
+              history: [...node.history, { time: timeRef.current, state: 'at-risk', resourceAllocated: node.resourceAllocated }]
+            };
+          }
+        }
+      });
+      
+      // Resource allocation - protect at-risk nodes
+      const atRiskNodes = newNodes
+        .filter(n => n.state === 'at-risk')
         .sort((a, b) => {
-          // Priority based on connectivity and priority weight
           const aConnections = adjacencyList.get(a.id)?.length || 0;
           const bConnections = adjacencyList.get(b.id)?.length || 0;
           const aScore = a.priority * params.priorityWeight + (aConnections / 10) * (1 - params.priorityWeight);
@@ -124,35 +163,67 @@ export const useSimulation = () => {
           return bScore - aScore;
         });
       
-      const currentlyProtected = newNodes.filter(n => n.state === 'protected').length;
-      const canProtect = Math.max(0, params.totalResources - currentlyProtected);
+      const currentResources = newNodes.reduce((sum, n) => sum + n.resourceAllocated, 0);
+      const availableResources = Math.max(0, params.totalResources - currentResources);
       
-      // Protect high-priority susceptible nodes
-      for (let i = 0; i < Math.min(canProtect, susceptibleNodes.length); i++) {
-        const nodeIndex = newNodes.findIndex(n => n.id === susceptibleNodes[i].id);
-        if (nodeIndex !== -1 && Math.random() < 0.3) { // Gradual protection
-          newNodes[nodeIndex] = { ...newNodes[nodeIndex], state: 'protected' };
+      // Allocate resources to at-risk nodes
+      for (let i = 0; i < Math.min(availableResources, atRiskNodes.length); i++) {
+        const nodeIndex = newNodes.findIndex(n => n.id === atRiskNodes[i].id);
+        if (nodeIndex !== -1) {
+          const delay = params.delayedEffects ? (Math.random() < 0.4) : false;
+          if (!delay) {
+            newNodes[nodeIndex] = { 
+              ...newNodes[nodeIndex], 
+              resourceAllocated: 1,
+              state: 'healthy',
+              history: [...newNodes[nodeIndex].history, { time: timeRef.current, state: 'healthy', resourceAllocated: 1 }]
+            };
+          }
         }
       }
       
-      // Process infections and recoveries
+      // Process infections
       newNodes.forEach((node, index) => {
+        const uncertainty = params.uncertaintyEnabled ? (Math.random() * 0.1 - 0.05) : 0;
+        
         if (node.state === 'infected') {
-          // Try to recover
-          if (Math.random() < params.recoveryRate) {
-            newNodes[index] = { ...node, state: 'recovered' };
+          // Check for collapse (prolonged infection)
+          if (node.infectedAt && timeRef.current - node.infectedAt > 5) {
+            if (Math.random() < 0.2) {
+              newNodes[index] = { 
+                ...node, 
+                state: 'collapsed', 
+                collapsedAt: timeRef.current,
+                history: [...node.history, { time: timeRef.current, state: 'collapsed', resourceAllocated: node.resourceAllocated }]
+              };
+              return;
+            }
           }
-        } else if (node.state === 'susceptible') {
-          // Check if neighbors are infected
+          
+          // Try to recover
+          if (Math.random() < params.recoveryRate + uncertainty) {
+            newNodes[index] = { 
+              ...node, 
+              state: 'healthy',
+              infectedAt: undefined,
+              history: [...node.history, { time: timeRef.current, state: 'healthy', resourceAllocated: node.resourceAllocated }]
+            };
+          }
+        } else if (node.state === 'at-risk' && node.resourceAllocated === 0) {
           const neighbors = adjacencyList.get(node.id) || [];
           const infectedNeighbors = neighbors.filter(
             nId => newNodes.find(n => n.id === nId)?.state === 'infected'
           ).length;
           
           if (infectedNeighbors > 0) {
-            const infectionProb = 1 - Math.pow(1 - params.infectionRate, infectedNeighbors);
+            const infectionProb = 1 - Math.pow(1 - (params.infectionRate + uncertainty), infectedNeighbors);
             if (Math.random() < infectionProb) {
-              newNodes[index] = { ...node, state: 'infected' };
+              newNodes[index] = { 
+                ...node, 
+                state: 'infected',
+                infectedAt: timeRef.current,
+                history: [...node.history, { time: timeRef.current, state: 'infected', resourceAllocated: node.resourceAllocated }]
+              };
             }
           }
         }
@@ -166,9 +237,10 @@ export const useSimulation = () => {
       setHistory(prev => [...prev, {
         time: timeRef.current,
         infected: newMetrics.totalInfected,
-        recovered: newMetrics.totalRecovered,
-        protected: newMetrics.totalProtected,
-        susceptible: newMetrics.totalSusceptible,
+        healthy: newMetrics.totalHealthy,
+        atRisk: newMetrics.totalAtRisk,
+        collapsed: newMetrics.totalCollapsed,
+        stress: newMetrics.systemStress,
       }]);
       
       return newNodes;
@@ -179,14 +251,18 @@ export const useSimulation = () => {
     if (isRunning && !isPaused) return;
     
     if (!isRunning) {
-      // Initialize with infected nodes
       setNodes(prevNodes => {
         const newNodes = [...prevNodes];
         const shuffled = [...newNodes].sort(() => Math.random() - 0.5);
         for (let i = 0; i < params.initialInfected && i < shuffled.length; i++) {
           const idx = newNodes.findIndex(n => n.id === shuffled[i].id);
           if (idx !== -1) {
-            newNodes[idx] = { ...newNodes[idx], state: 'infected' };
+            newNodes[idx] = { 
+              ...newNodes[idx], 
+              state: 'infected',
+              infectedAt: 0,
+              history: [{ time: 0, state: 'infected', resourceAllocated: 0 }]
+            };
           }
         }
         const initialMetrics = calculateMetrics(newNodes);
@@ -194,9 +270,10 @@ export const useSimulation = () => {
         setHistory([{
           time: 0,
           infected: initialMetrics.totalInfected,
-          recovered: 0,
-          protected: 0,
-          susceptible: initialMetrics.totalSusceptible,
+          healthy: initialMetrics.totalHealthy,
+          atRisk: 0,
+          collapsed: 0,
+          stress: initialMetrics.systemStress,
         }]);
         return newNodes;
       });
@@ -227,21 +304,27 @@ export const useSimulation = () => {
     setEdges(generateEdges(newNodes));
     setMetrics(defaultMetrics);
     setHistory([]);
+    setSnapshots([]);
     setIsRunning(false);
     setIsPaused(false);
+    setSelectedNode(null);
     timeRef.current = 0;
   }, []);
 
   const stepOnce = useCallback(() => {
     if (!isRunning) {
-      // Initialize if not started
       setNodes(prevNodes => {
         const newNodes = [...prevNodes];
         const shuffled = [...newNodes].sort(() => Math.random() - 0.5);
         for (let i = 0; i < params.initialInfected && i < shuffled.length; i++) {
           const idx = newNodes.findIndex(n => n.id === shuffled[i].id);
           if (idx !== -1) {
-            newNodes[idx] = { ...newNodes[idx], state: 'infected' };
+            newNodes[idx] = { 
+              ...newNodes[idx], 
+              state: 'infected',
+              infectedAt: 0,
+              history: [{ time: 0, state: 'infected', resourceAllocated: 0 }]
+            };
           }
         }
         return newNodes;
@@ -252,27 +335,24 @@ export const useSimulation = () => {
     step();
   }, [isRunning, params.initialInfected, step]);
 
-  const toggleNodeProtection = useCallback((nodeId: string) => {
-    setNodes(prevNodes => {
-      const nodeIndex = prevNodes.findIndex(n => n.id === nodeId);
-      if (nodeIndex === -1) return prevNodes;
-      
-      const node = prevNodes[nodeIndex];
-      const newNodes = [...prevNodes];
-      
-      // Only allow toggling susceptible to protected or protected to susceptible
-      if (node.state === 'susceptible') {
-        const currentlyProtected = prevNodes.filter(n => n.state === 'protected').length;
-        if (currentlyProtected < params.totalResources) {
-          newNodes[nodeIndex] = { ...node, state: 'protected' };
-        }
-      } else if (node.state === 'protected') {
-        newNodes[nodeIndex] = { ...node, state: 'susceptible' };
-      }
-      
-      return newNodes;
-    });
-  }, [params.totalResources]);
+  const takeSnapshot = useCallback(() => {
+    const snapshot: Snapshot = {
+      time: timeRef.current,
+      label: `Snapshot t=${timeRef.current}`,
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      metrics: { ...metrics },
+    };
+    setSnapshots(prev => [...prev, snapshot]);
+  }, [nodes, metrics]);
+
+  const selectNode = useCallback((nodeId: string | null) => {
+    if (nodeId === null) {
+      setSelectedNode(null);
+    } else {
+      const node = nodes.find(n => n.id === nodeId);
+      setSelectedNode(node || null);
+    }
+  }, [nodes]);
 
   useEffect(() => {
     return () => {
@@ -282,7 +362,6 @@ export const useSimulation = () => {
     };
   }, []);
 
-  // Update interval when speed changes
   useEffect(() => {
     if (isRunning && !isPaused && intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -297,12 +376,17 @@ export const useSimulation = () => {
     setParams,
     metrics,
     history,
+    snapshots,
     isRunning,
     isPaused,
     start,
     pause,
     reset,
     stepOnce,
-    toggleNodeProtection,
+    takeSnapshot,
+    selectedNode,
+    selectNode,
+    showHeatmap,
+    setShowHeatmap,
   };
 };

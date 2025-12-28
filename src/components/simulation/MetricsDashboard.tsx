@@ -1,10 +1,12 @@
-import { SimulationMetrics, HistoryPoint } from '@/types/simulation';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { SimulationMetrics, HistoryPoint, Snapshot } from '@/types/simulation';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 
 interface MetricsDashboardProps {
   metrics: SimulationMetrics;
   history: HistoryPoint[];
   totalResources: number;
+  snapshots: Snapshot[];
+  onTakeSnapshot: () => void;
 }
 
 interface MetricCardProps {
@@ -14,80 +16,124 @@ interface MetricCardProps {
   subtext?: string;
 }
 
+const stateColors = {
+  healthy: '#6B8CAE',
+  atRisk: '#C9A857',
+  infected: '#B5636A',
+  collapsed: '#505A64',
+};
+
 const MetricCard = ({ label, value, color, subtext }: MetricCardProps) => (
-  <div className="bg-secondary/50 rounded-lg p-3 border border-border">
-    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1">{label}</div>
-    <div className="text-2xl font-mono font-semibold" style={{ color }}>
+  <div className="bg-secondary/50 rounded px-3 py-2.5 border border-border">
+    <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
+    <div className="text-xl font-mono font-medium mt-0.5" style={{ color: color || 'inherit' }}>
       {value}
     </div>
-    {subtext && <div className="text-xs text-muted-foreground mt-1">{subtext}</div>}
+    {subtext && <div className="text-xs text-muted-foreground mt-0.5">{subtext}</div>}
   </div>
 );
 
-export const MetricsDashboard = ({ metrics, history, totalResources }: MetricsDashboardProps) => {
-  const totalNodes = metrics.totalInfected + metrics.totalRecovered + metrics.totalProtected + metrics.totalSusceptible;
+const StressBar = ({ stress }: { stress: number }) => {
+  const getStressColor = (level: number) => {
+    if (level < 0.25) return 'bg-stress-low';
+    if (level < 0.5) return 'bg-stress-medium';
+    if (level < 0.75) return 'bg-stress-high';
+    return 'bg-stress-critical';
+  };
+
+  const getStressLabel = (level: number) => {
+    if (level < 0.25) return 'Low';
+    if (level < 0.5) return 'Moderate';
+    if (level < 0.75) return 'High';
+    return 'Critical';
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-baseline">
+        <span className="text-xs text-muted-foreground uppercase tracking-wider">System Stress</span>
+        <span className="text-xs font-mono text-muted-foreground">{getStressLabel(stress)}</span>
+      </div>
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div 
+          className={`h-full transition-all duration-500 ${getStressColor(stress)}`}
+          style={{ width: `${Math.min(100, stress * 100)}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+export const MetricsDashboard = ({ 
+  metrics, 
+  history, 
+  totalResources, 
+  snapshots,
+  onTakeSnapshot 
+}: MetricsDashboardProps) => {
+  const totalNodes = metrics.totalInfected + metrics.totalHealthy + metrics.totalAtRisk + metrics.totalCollapsed;
   
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Current State
-        </h3>
+      {/* Stress Bar */}
+      <StressBar stress={metrics.systemStress} />
+
+      <div className="border-t border-border pt-4">
+        <h3 className="analytical-header mb-2.5">Current State</h3>
         <div className="grid grid-cols-2 gap-2">
+          <MetricCard 
+            label="Healthy" 
+            value={metrics.totalHealthy} 
+            color={stateColors.healthy}
+          />
+          <MetricCard 
+            label="At Risk" 
+            value={metrics.totalAtRisk} 
+            color={stateColors.atRisk}
+          />
           <MetricCard 
             label="Infected" 
             value={metrics.totalInfected} 
-            color="hsl(38, 92%, 55%)"
+            color={stateColors.infected}
           />
           <MetricCard 
-            label="Recovered" 
-            value={metrics.totalRecovered} 
-            color="hsl(160, 60%, 45%)"
-          />
-          <MetricCard 
-            label="Protected" 
-            value={metrics.totalProtected} 
-            color="hsl(270, 60%, 60%)"
-          />
-          <MetricCard 
-            label="Susceptible" 
-            value={metrics.totalSusceptible} 
-            color="hsl(210, 80%, 55%)"
+            label="Collapsed" 
+            value={metrics.totalCollapsed} 
+            color={stateColors.collapsed}
           />
         </div>
       </div>
 
       <div className="border-t border-border pt-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Resources
-        </h3>
+        <h3 className="analytical-header mb-2.5">Resources</h3>
         <div className="grid grid-cols-2 gap-2">
           <MetricCard 
-            label="Used" 
+            label="Allocated" 
             value={`${metrics.resourcesUsed}/${totalResources}`}
-            subtext="allocation units"
+            subtext="units deployed"
           />
           <MetricCard 
-            label="Sacrificed" 
-            value={totalNodes > 0 ? totalNodes - metrics.totalProtected - metrics.totalSusceptible : 0}
-            subtext="regions affected"
+            label="Affected" 
+            value={metrics.totalInfected + metrics.totalCollapsed}
+            subtext="regions impacted"
           />
         </div>
       </div>
 
       <div className="border-t border-border pt-4">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-          Timeline
-        </h3>
-        <div className="grid grid-cols-2 gap-2 mb-4">
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="analytical-header">Timeline</h3>
+          <span className="text-xs font-mono text-muted-foreground">t={metrics.currentTime}</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <MetricCard 
-            label="Peak Infection" 
+            label="Peak" 
             value={metrics.peakInfection}
             subtext={`at t=${metrics.peakTime}`}
           />
           <MetricCard 
-            label="Current Time" 
-            value={`t=${metrics.currentTime}`}
+            label="Duration" 
+            value={`${metrics.currentTime}`}
             subtext="time steps"
           />
         </div>
@@ -95,63 +141,85 @@ export const MetricsDashboard = ({ metrics, history, totalResources }: MetricsDa
 
       {history.length > 1 && (
         <div className="border-t border-border pt-4">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            Infection Timeline
-          </h3>
-          <div className="h-40 -ml-4">
+          <h3 className="analytical-header mb-2.5">Infection Curve</h3>
+          <div className="h-32 -ml-2">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={history}>
+              <AreaChart data={history}>
+                <defs>
+                  <linearGradient id="infectedGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor={stateColors.infected} stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <XAxis 
                   dataKey="time" 
-                  tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }}
-                  axisLine={{ stroke: 'hsl(222, 30%, 18%)' }}
-                  tickLine={{ stroke: 'hsl(222, 30%, 18%)' }}
+                  tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
+                  axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
+                  tickLine={false}
                 />
                 <YAxis 
-                  tick={{ fontSize: 10, fill: 'hsl(215, 20%, 55%)' }}
-                  axisLine={{ stroke: 'hsl(222, 30%, 18%)' }}
-                  tickLine={{ stroke: 'hsl(222, 30%, 18%)' }}
+                  tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
+                  axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
+                  tickLine={false}
+                  width={25}
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: 'hsl(222, 47%, 10%)',
-                    border: '1px solid hsl(222, 30%, 18%)',
-                    borderRadius: '6px',
-                    fontSize: '12px'
+                    backgroundColor: 'hsl(0, 0%, 100%)',
+                    border: '1px solid hsl(220, 14%, 85%)',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                   }}
                 />
-                <Legend 
-                  wrapperStyle={{ fontSize: '10px' }}
-                />
-                <Line 
+                <Area 
                   type="monotone" 
                   dataKey="infected" 
-                  stroke="hsl(38, 92%, 55%)" 
-                  strokeWidth={2}
-                  dot={false}
+                  stroke={stateColors.infected}
+                  fill="url(#infectedGradient)"
+                  strokeWidth={1.5}
                   name="Infected"
                 />
                 <Line 
                   type="monotone" 
-                  dataKey="recovered" 
-                  stroke="hsl(160, 60%, 45%)" 
-                  strokeWidth={2}
+                  dataKey="collapsed" 
+                  stroke={stateColors.collapsed}
+                  strokeWidth={1.5}
                   dot={false}
-                  name="Recovered"
+                  name="Collapsed"
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="protected" 
-                  stroke="hsl(270, 60%, 60%)" 
-                  strokeWidth={2}
-                  dot={false}
-                  name="Protected"
-                />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
+
+      {/* Snapshots */}
+      <div className="border-t border-border pt-4">
+        <div className="flex items-center justify-between mb-2.5">
+          <h3 className="analytical-header">Snapshots</h3>
+          <button 
+            onClick={onTakeSnapshot}
+            className="text-xs text-primary hover:text-primary/80 transition-colors"
+          >
+            + Capture
+          </button>
+        </div>
+        {snapshots.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No snapshots captured</p>
+        ) : (
+          <div className="space-y-1">
+            {snapshots.slice(-3).map((snap, i) => (
+              <div key={i} className="flex items-center justify-between text-xs py-1.5 px-2 bg-secondary/30 rounded">
+                <span className="text-muted-foreground">{snap.label}</span>
+                <span className="font-mono text-muted-foreground">
+                  {snap.metrics.totalInfected} inf
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
