@@ -1,42 +1,47 @@
-import { AlertCircle, Shield, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Scale, TrendingDown } from 'lucide-react';
 
 export const ExplanatorySection = () => {
   return (
-    <div className="bg-card border border-border rounded-lg p-6 space-y-4">
-      <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-        <AlertCircle className="w-5 h-5 text-primary" />
+    <div className="bg-card border border-border rounded p-5">
+      <h2 className="text-sm font-medium text-foreground mb-4">
         Understanding the Simulation
       </h2>
       
-      <div className="space-y-4 text-sm text-muted-foreground">
+      <div className="space-y-4">
         <div className="flex gap-3">
-          <Shield className="w-5 h-5 text-node-protected flex-shrink-0 mt-0.5" />
+          <div className="flex-shrink-0 w-8 h-8 rounded bg-secondary flex items-center justify-center">
+            <AlertTriangle className="w-4 h-4 text-muted-foreground" />
+          </div>
           <div>
-            <h3 className="font-medium text-foreground mb-1">Limited Resources</h3>
-            <p>
-              Medical resources (vaccines, hospital beds, personnel) are finite. The simulation 
-              demonstrates how these constraints force difficult prioritization decisions between regions.
+            <h3 className="text-xs font-medium text-foreground mb-1">Resource Scarcity</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Medical resources are finite. Not every at-risk region can receive intervention.
             </p>
           </div>
         </div>
-        
+
         <div className="flex gap-3">
-          <TrendingUp className="w-5 h-5 text-node-infected flex-shrink-0 mt-0.5" />
+          <div className="flex-shrink-0 w-8 h-8 rounded bg-secondary flex items-center justify-center">
+            <Scale className="w-4 h-4 text-muted-foreground" />
+          </div>
           <div>
-            <h3 className="font-medium text-foreground mb-1">Trade-offs Under Scarcity</h3>
-            <p>
-              Not all regions can be protected simultaneously. The priority weight parameter balances 
-              between protecting high-priority regions versus highly-connected hubs that could accelerate spread.
+            <h3 className="text-xs font-medium text-foreground mb-1">Trade-off Decisions</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Each allocation decision has cascading consequences across the network.
             </p>
           </div>
         </div>
-        
-        <div className="bg-secondary/30 rounded-md p-4 mt-4">
-          <p className="text-xs leading-relaxed">
-            This simulation models a simplified SIR (Susceptible-Infected-Recovered) epidemic with 
-            resource constraints. Real-world containment involves far more complexity, including 
-            variable population densities, heterogeneous contact patterns, and dynamic policy responses.
-          </p>
+
+        <div className="flex gap-3">
+          <div className="flex-shrink-0 w-8 h-8 rounded bg-secondary flex items-center justify-center">
+            <TrendingDown className="w-4 h-4 text-muted-foreground" />
+          </div>
+          <div>
+            <h3 className="text-xs font-medium text-foreground mb-1">System Collapse</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Prolonged infection leads to collapse — permanent system failure.
+            </p>
+          </div>
         </div>
       </div>
     </div>
