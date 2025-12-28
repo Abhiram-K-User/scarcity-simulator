@@ -1,5 +1,6 @@
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { SimulationParams } from '@/types/simulation';
 
 interface ControlPanelProps {
@@ -21,10 +22,10 @@ interface SliderControlProps {
 }
 
 const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled, description }: SliderControlProps) => (
-  <div className="space-y-3">
+  <div className="space-y-2">
     <div className="flex justify-between items-baseline">
-      <Label className="text-sm font-medium text-foreground">{label}</Label>
-      <span className="text-sm font-mono text-primary">
+      <Label className="text-xs font-medium text-foreground">{label}</Label>
+      <span className="text-xs font-mono text-muted-foreground">
         {value.toFixed(step < 1 ? 2 : 0)}{unit}
       </span>
     </div>
@@ -38,7 +39,7 @@ const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled,
       className="cursor-pointer"
     />
     {description && (
-      <p className="text-xs text-muted-foreground">{description}</p>
+      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
     )}
   </div>
 );
@@ -49,49 +50,49 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Disease Parameters
+        <h3 className="analytical-header mb-3">
+          Transmission
         </h3>
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SliderControl
             label="Infection Rate"
             value={params.infectionRate}
             min={0.01}
-            max={0.5}
+            max={0.4}
             step={0.01}
             onChange={(v) => updateParam('infectionRate', v)}
             disabled={disabled}
-            description="Probability of transmission per contact"
+            description="Per-contact transmission probability"
           />
           <SliderControl
             label="Recovery Rate"
             value={params.recoveryRate}
             min={0.01}
-            max={0.3}
+            max={0.2}
             step={0.01}
             onChange={(v) => updateParam('recoveryRate', v)}
             disabled={disabled}
-            description="Probability of recovery per time step"
+            description="Recovery probability per step"
           />
         </div>
       </div>
 
-      <div className="border-t border-border pt-6">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Resource Allocation
+      <div className="border-t border-border pt-5">
+        <h3 className="analytical-header mb-3">
+          Resources
         </h3>
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SliderControl
-            label="Medical Resources"
+            label="Available Units"
             value={params.totalResources}
             min={0}
-            max={15}
+            max={10}
             step={1}
             onChange={(v) => updateParam('totalResources', v)}
             disabled={disabled}
-            description="Vaccines / hospital capacity units"
+            description="Medical intervention capacity"
           />
           <SliderControl
             label="Priority Weight"
@@ -101,36 +102,64 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={0.1}
             onChange={(v) => updateParam('priorityWeight', v)}
             disabled={disabled}
-            description="Balance between region priority and connectivity"
+            description="Balance: region priority vs. connectivity"
           />
         </div>
       </div>
 
-      <div className="border-t border-border pt-6">
-        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-4">
-          Initial Conditions
+      <div className="border-t border-border pt-5">
+        <h3 className="analytical-header mb-3">
+          Initial State
         </h3>
-        <div className="space-y-5">
+        <div className="space-y-4">
           <SliderControl
             label="Initial Infected"
             value={params.initialInfected}
             min={1}
-            max={5}
+            max={4}
             step={1}
             onChange={(v) => updateParam('initialInfected', v)}
             disabled={disabled}
-            description="Number of initially infected regions"
           />
           <SliderControl
-            label="Simulation Speed"
+            label="Step Interval"
             value={params.timeStepSpeed}
-            min={100}
+            min={200}
             max={2000}
             step={100}
             unit="ms"
             onChange={(v) => updateParam('timeStepSpeed', v)}
-            description="Time between simulation steps"
           />
+        </div>
+      </div>
+
+      <div className="border-t border-border pt-5">
+        <h3 className="analytical-header mb-3">
+          Model Options
+        </h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-xs font-medium text-foreground">Uncertainty</Label>
+              <p className="text-xs text-muted-foreground">Add stochastic variation</p>
+            </div>
+            <Switch
+              checked={params.uncertaintyEnabled}
+              onCheckedChange={(v) => updateParam('uncertaintyEnabled', v)}
+              disabled={disabled}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-xs font-medium text-foreground">Delayed Effects</Label>
+              <p className="text-xs text-muted-foreground">Resource allocation lag</p>
+            </div>
+            <Switch
+              checked={params.delayedEffects}
+              onCheckedChange={(v) => updateParam('delayedEffects', v)}
+              disabled={disabled}
+            />
+          </div>
         </div>
       </div>
     </div>
