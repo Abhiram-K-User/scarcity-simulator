@@ -222,7 +222,7 @@ export const NetworkGraph = ({
       drawHeatmapOverlay(ctx, nodes, nodePositionsRef.current, rect.width, rect.height);
     }
 
-    // Draw edges with thickness based on weight
+    // Draw edges with thickness based on weight and infection spreading indicators
     edges.forEach(edge => {
       const sourcePos = nodePositionsRef.current.get(edge.source);
       const targetPos = nodePositionsRef.current.get(edge.target);
@@ -233,22 +233,52 @@ export const NetworkGraph = ({
         const isHighlighted = hoveredNode === edge.source || hoveredNode === edge.target ||
                              selectedNodeId === edge.source || selectedNodeId === edge.target;
         
-        // Calculate opacity based on node states (fading for past events)
+        // Check if infection is actively spreading along this edge
+        const isSpreadingInfection = 
+          (sourceNode.state === 'infected' && (targetNode.state === 'healthy' || targetNode.state === 'at-risk')) ||
+          (targetNode.state === 'infected' && (sourceNode.state === 'healthy' || sourceNode.state === 'at-risk'));
+        
+        // Calculate opacity and color based on node states
         let opacity = 0.15;
+        let color = 'rgba(80, 90, 100';
+        
         if (sourceNode.state === 'collapsed' || targetNode.state === 'collapsed') {
           opacity = 0.05;
-        } else if (sourceNode.state === 'infected' || targetNode.state === 'infected') {
-          opacity = 0.35;
+        } else if (isSpreadingInfection) {
+          // Active infection spread - use red/orange pulsing effect
+          color = 'rgba(181, 99, 106';
+          opacity = 0.6 + Math.sin(Date.now() / 200) * 0.2;
+        } else if (sourceNode.state === 'infected' && targetNode.state === 'infected') {
+          color = 'rgba(181, 99, 106';
+          opacity = 0.3;
         } else if (isHighlighted) {
           opacity = 0.4;
         }
         
-        ctx.strokeStyle = `rgba(80, 90, 100, ${opacity})`;
-        ctx.lineWidth = edge.weight * 3 + 0.5;
+        ctx.strokeStyle = `${color}, ${opacity})`;
+        ctx.lineWidth = isSpreadingInfection ? edge.weight * 4 + 1 : edge.weight * 3 + 0.5;
         ctx.beginPath();
         ctx.moveTo(sourcePos.x, sourcePos.y);
         ctx.lineTo(targetPos.x, targetPos.y);
         ctx.stroke();
+        
+        // Draw animated particles along spreading edges
+        if (isSpreadingInfection) {
+          const infectedPos = sourceNode.state === 'infected' ? sourcePos : targetPos;
+          const targetPosEnd = sourceNode.state === 'infected' ? targetPos : sourcePos;
+          
+          // Multiple particles moving along the edge
+          for (let p = 0; p < 3; p++) {
+            const progress = ((Date.now() / 600 + p * 0.33) % 1);
+            const particleX = infectedPos.x + (targetPosEnd.x - infectedPos.x) * progress;
+            const particleY = infectedPos.y + (targetPosEnd.y - infectedPos.y) * progress;
+            
+            ctx.beginPath();
+            ctx.arc(particleX, particleY, 3, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(181, 99, 106, ${0.8 - progress * 0.5})`;
+            ctx.fill();
+          }
+        }
       }
     });
 
