@@ -159,18 +159,23 @@ export const useSimulation = () => {
       newNodes.forEach((node, index) => {
         const neighbors = adjacencyList.get(node.id) || [];
         
+        // Skip collapsed nodes - they can't transition
+        if (node.state === 'collapsed') return;
+        
+        // Get infected neighbors (nodes that can spread infection)
+        const infectedNeighbors = neighbors.filter(nId => {
+          const n = newNodes.find(n => n.id === nId);
+          return n?.state === 'infected';
+        });
+        
+        const riskScore = infectedNeighbors.length / Math.max(1, neighbors.length);
+        newNodes[index] = { ...node, riskScore };
+        
         if (node.state === 'healthy') {
-          const infectedNeighbors = neighbors.filter(nId => {
-            const n = newNodes.find(n => n.id === nId);
-            return n?.state === 'infected';
-          });
-          
-          const riskScore = infectedNeighbors.length / Math.max(1, neighbors.length);
-          newNodes[index] = { ...node, riskScore };
-          
           // Healthy nodes become at-risk if they have infected neighbors
           if (infectedNeighbors.length > 0) {
-            const spreadChance = params.infectionRate * infectedNeighbors.length;
+            // Higher spread chance with more infected neighbors
+            const spreadChance = params.infectionRate * (0.5 + infectedNeighbors.length * 0.3);
             if (Math.random() < spreadChance) {
               newNodes[index] = { 
                 ...newNodes[index], 
