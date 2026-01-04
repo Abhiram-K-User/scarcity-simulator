@@ -3,7 +3,6 @@ import { NetworkGraph } from '@/components/simulation/NetworkGraph';
 import { ControlPanel } from '@/components/simulation/ControlPanel';
 import { SimulationControls } from '@/components/simulation/SimulationControls';
 import { MetricsDashboard } from '@/components/simulation/MetricsDashboard';
-import { ExplanatorySection } from '@/components/simulation/ExplanatorySection';
 import { NodeDetailPanel } from '@/components/simulation/NodeDetailPanel';
 
 const Index = () => {
@@ -124,19 +123,14 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Node Detail + Explanation Row */}
-            {selectedNode ? (
-              <div className="grid md:grid-cols-2 gap-3">
-                <div className="animate-slide-in-right">
-                  <NodeDetailPanel 
-                    node={selectedNode} 
-                    onClose={() => selectNode(null)} 
-                  />
-                </div>
-                <ExplanatorySection />
+            {/* Node Detail Panel */}
+            {selectedNode && (
+              <div className="animate-slide-in-right">
+                <NodeDetailPanel 
+                  node={selectedNode} 
+                  onClose={() => selectNode(null)} 
+                />
               </div>
-            ) : (
-              <ExplanatorySection />
             )}
           </div>
 
