@@ -31,12 +31,12 @@ const formatNumber = (num: number): string => {
 };
 
 const MetricCard = ({ label, value, color, subtext }: MetricCardProps) => (
-  <div className="bg-secondary/50 rounded px-3 py-2.5 border border-border">
-    <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
-    <div className="text-xl font-mono font-medium mt-0.5" style={{ color: color || 'inherit' }}>
+  <div className="glassmorphic rounded-lg px-2.5 py-2 border border-white/30 hover-lift group">
+    <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</div>
+    <div className="text-base font-mono font-semibold transition-all duration-300 group-hover:scale-105" style={{ color: color || 'inherit' }}>
       {value}
     </div>
-    {subtext && <div className="text-xs text-muted-foreground mt-0.5">{subtext}</div>}
+    {subtext && <div className="text-[9px] text-muted-foreground mt-0.5 opacity-80">{subtext}</div>}
   </div>
 );
 
@@ -55,15 +55,22 @@ const StressBar = ({ stress }: { stress: number }) => {
     return 'Critical';
   };
 
+  const getStressShadow = (level: number) => {
+    if (level < 0.25) return 'shadow-stress-low/50';
+    if (level < 0.5) return 'shadow-stress-medium/50';
+    if (level < 0.75) return 'shadow-stress-high/50';
+    return 'shadow-stress-critical/50';
+  };
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1.5 glassmorphic rounded-lg p-2.5 border border-white/30">
       <div className="flex justify-between items-baseline">
-        <span className="text-xs text-muted-foreground uppercase tracking-wider">System Stress</span>
-        <span className="text-xs font-mono text-muted-foreground">{getStressLabel(stress)}</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">System Stress</span>
+        <span className="text-[10px] font-mono text-foreground font-semibold px-2 py-0.5 rounded bg-white/50">{getStressLabel(stress)}</span>
       </div>
-      <div className="h-2 bg-muted rounded-full overflow-hidden">
+      <div className="h-2 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm">
         <div 
-          className={`h-full transition-all duration-500 ${getStressColor(stress)}`}
+          className={`h-full transition-all duration-700 ${getStressColor(stress)} shadow-lg ${getStressShadow(stress)} animate-pulse`}
           style={{ width: `${Math.min(100, stress * 100)}%` }}
         />
       </div>
@@ -79,43 +86,14 @@ export const MetricsDashboard = ({
   onTakeSnapshot 
 }: MetricsDashboardProps) => {
   return (
-    <div className="space-y-4">
+    <div className="space-y-2.5">
       {/* Stress Bar */}
       <StressBar stress={metrics.systemStress} />
 
-      {/* Population Stats */}
-      <div className="border-t border-border pt-4">
-        <h3 className="analytical-header mb-2.5">Population Impact</h3>
-        <div className="grid grid-cols-2 gap-2">
-          <MetricCard 
-            label="Infected Pop" 
-            value={formatNumber(metrics.totalInfectedPop)} 
-            color={stateColors.infected}
-            subtext="currently infected"
-          />
-          <MetricCard 
-            label="Total Deaths" 
-            value={formatNumber(metrics.totalDeaths)} 
-            color={stateColors.collapsed}
-            subtext="cumulative"
-          />
-          <MetricCard 
-            label="Recoveries" 
-            value={formatNumber(metrics.totalRecoveries)} 
-            color={stateColors.recovered}
-            subtext="cumulative"
-          />
-          <MetricCard 
-            label="Total Pop" 
-            value={formatNumber(metrics.totalPopulation)} 
-            subtext="all regions"
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <h3 className="analytical-header mb-2.5">Region State</h3>
-        <div className="grid grid-cols-2 gap-2">
+      {/* Region State - 4 columns */}
+      <div>
+        <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Region State</h3>
+        <div className="grid grid-cols-4 gap-1.5">
           <MetricCard 
             label="Healthy" 
             value={metrics.totalHealthy} 
@@ -139,55 +117,74 @@ export const MetricsDashboard = ({
         </div>
       </div>
 
-      <div className="border-t border-border pt-4">
-        <h3 className="analytical-header mb-2.5">Resources</h3>
-        <div className="grid grid-cols-2 gap-2">
+      {/* Population Impact - 4 columns */}
+      <div>
+        <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Population Impact</h3>
+        <div className="grid grid-cols-4 gap-1.5">
           <MetricCard 
-            label="Allocated" 
-            value={`${metrics.resourcesUsed}/${totalResources}`}
-            subtext="units deployed"
+            label="Infected" 
+            value={formatNumber(metrics.totalInfectedPop)} 
+            color={stateColors.infected}
           />
           <MetricCard 
-            label="Affected" 
-            value={metrics.totalInfected + metrics.totalCollapsed}
-            subtext="regions impacted"
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <h3 className="analytical-header">Timeline</h3>
-          <span className="text-xs font-mono text-muted-foreground">t={metrics.currentTime}</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <MetricCard 
-            label="Peak" 
-            value={metrics.peakInfection}
-            subtext={`at t=${metrics.peakTime}`}
+            label="Deaths" 
+            value={formatNumber(metrics.totalDeaths)} 
+            color={stateColors.collapsed}
           />
           <MetricCard 
-            label="Duration" 
-            value={`${metrics.currentTime}`}
-            subtext="time steps"
+            label="Recovered" 
+            value={formatNumber(metrics.totalRecoveries)} 
+            color={stateColors.recovered}
+          />
+          <MetricCard 
+            label="Total" 
+            value={formatNumber(metrics.totalPopulation)}
           />
         </div>
       </div>
 
+      {/* Resources & Timeline - 2 columns */}
+      <div className="grid grid-cols-2 gap-1.5">
+        <div>
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Resources</h3>
+          <div className="grid grid-cols-2 gap-1.5">
+            <MetricCard 
+              label="Allocated" 
+              value={`${metrics.resourcesUsed}/${totalResources}`}
+            />
+            <MetricCard 
+              label="Affected" 
+              value={metrics.totalInfected + metrics.totalCollapsed}
+            />
+          </div>
+        </div>
+        <div>
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Timeline</h3>
+          <div className="grid grid-cols-2 gap-1.5">
+            <MetricCard 
+              label="Peak" 
+              value={metrics.peakInfection}
+              subtext={`t=${metrics.peakTime}`}
+            />
+            <MetricCard 
+              label="Duration" 
+              value={`${metrics.currentTime}`}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Trends Chart - Compact */}
       {history.length > 1 && (
-        <div className="border-t border-border pt-4">
-          <h3 className="analytical-header mb-2.5">Trends</h3>
-          <div className="h-36 -ml-2">
+        <div className="glassmorphic rounded-lg p-2.5 border border-white/30">
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Trends</h3>
+          <div className="h-32 -ml-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history}>
                 <defs>
                   <linearGradient id="infectedGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.2}/>
+                    <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.3}/>
                     <stop offset="95%" stopColor={stateColors.infected} stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="deathsGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={stateColors.collapsed} stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor={stateColors.collapsed} stopOpacity={0}/>
                   </linearGradient>
                 </defs>
                 <XAxis 
@@ -205,11 +202,13 @@ export const MetricsDashboard = ({
                 />
                 <Tooltip 
                   contentStyle={{ 
-                    backgroundColor: 'hsl(0, 0%, 100%)',
-                    border: '1px solid hsl(220, 14%, 85%)',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.5)',
+                    borderRadius: '6px',
+                    fontSize: '10px',
+                    padding: '4px 8px',
+                    boxShadow: '0 4px 20px rgba(107, 140, 174, 0.2)'
                   }}
                   formatter={(value: number, name: string) => [formatNumber(value), name]}
                 />
@@ -218,8 +217,8 @@ export const MetricsDashboard = ({
                   dataKey="infectedPop" 
                   stroke={stateColors.infected}
                   fill="url(#infectedGradient)"
-                  strokeWidth={1.5}
-                  name="Infected Pop"
+                  strokeWidth={2}
+                  name="Infected"
                 />
                 <Line 
                   type="monotone" 
@@ -235,7 +234,7 @@ export const MetricsDashboard = ({
                   stroke={stateColors.recovered}
                   strokeWidth={1.5}
                   dot={false}
-                  name="Recoveries"
+                  name="Recovered"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -243,25 +242,25 @@ export const MetricsDashboard = ({
         </div>
       )}
 
-      {/* Snapshots */}
-      <div className="border-t border-border pt-4">
-        <div className="flex items-center justify-between mb-2.5">
-          <h3 className="analytical-header">Snapshots</h3>
+      {/* Snapshots - Compact */}
+      <div className="glassmorphic rounded-lg p-2.5 border border-white/30">
+        <div className="flex items-center justify-between mb-1.5">
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider">Snapshots</h3>
           <button 
             onClick={onTakeSnapshot}
-            className="text-xs text-primary hover:text-primary/80 transition-colors"
+            className="text-[10px] text-primary hover:text-primary/80 transition-all duration-300 font-medium px-2 py-1 rounded hover:bg-white/40 border border-primary/20 hover:border-primary/40 hover:scale-105 transform"
           >
             + Capture
           </button>
         </div>
         {snapshots.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No snapshots captured</p>
+          <p className="text-[10px] text-muted-foreground">No snapshots</p>
         ) : (
           <div className="space-y-1">
             {snapshots.slice(-3).map((snap, i) => (
-              <div key={i} className="flex items-center justify-between text-xs py-1.5 px-2 bg-secondary/30 rounded">
-                <span className="text-muted-foreground">{snap.label}</span>
-                <span className="font-mono text-muted-foreground">
+              <div key={i} className="flex items-center justify-between text-[10px] py-1 px-2 glassmorphic rounded border border-white/20 hover:border-white/40 transition-all duration-300 hover-lift">
+                <span className="text-muted-foreground font-medium">{snap.label}</span>
+                <span className="font-mono text-muted-foreground bg-white/40 px-1.5 py-0.5 rounded text-[9px]">
                   {formatNumber(snap.metrics.totalDeaths)} deaths
                 </span>
               </div>

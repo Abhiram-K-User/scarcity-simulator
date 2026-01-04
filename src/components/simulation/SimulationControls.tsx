@@ -25,53 +25,51 @@ export const SimulationControls = ({
   onToggleHeatmap,
 }: SimulationControlsProps) => {
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        {!isRunning || isPaused ? (
-          <Button 
-            onClick={onStart} 
-            size="sm"
-            className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Play className="w-3.5 h-3.5 mr-1.5" />
-            {isPaused ? 'Resume' : 'Start'}
-          </Button>
-        ) : (
-          <Button 
-            onClick={onPause} 
-            variant="secondary"
-            size="sm"
-            className="flex-1"
-          >
-            <Pause className="w-3.5 h-3.5 mr-1.5" />
-            Pause
-          </Button>
-        )}
-        
+    <div className="flex items-center gap-2">
+      {!isRunning || isPaused ? (
         <Button 
-          onClick={onStep} 
-          variant="outline"
+          onClick={onStart} 
           size="sm"
-          title="Step forward"
+          className="bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 text-primary-foreground shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 transform"
         >
-          <StepForward className="w-3.5 h-3.5" />
+          <Play className="w-3.5 h-3.5 mr-1.5" />
+          {isPaused ? 'Resume' : 'Start'}
         </Button>
-        
+      ) : (
         <Button 
-          onClick={onReset} 
-          variant="outline"
+          onClick={onPause} 
+          variant="secondary"
           size="sm"
-          title="Reset simulation"
+          className="glassmorphic hover:bg-white/60 border border-white/40 transition-all duration-300 hover:scale-105 transform shadow-md"
         >
-          <RotateCcw className="w-3.5 h-3.5" />
+          <Pause className="w-3.5 h-3.5 mr-1.5" />
+          Pause
         </Button>
-      </div>
+      )}
+      
+      <Button 
+        onClick={onStep} 
+        variant="outline"
+        size="sm"
+        title="Step forward"
+        className="glassmorphic hover:bg-white/60 border border-white/40 transition-all duration-300 hover:scale-110 transform shadow-sm"
+      >
+        <StepForward className="w-3.5 h-3.5" />
+      </Button>
+      
+      <Button 
+        onClick={onReset} 
+        variant="outline"
+        size="sm"
+        title="Reset simulation"
+        className="glassmorphic hover:bg-white/60 border border-white/40 transition-all duration-300 hover:scale-110 transform shadow-sm"
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+      </Button>
 
-      <div className="flex items-center justify-between pt-2 border-t border-border">
-        <div className="flex items-center gap-2">
-          <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-          <Label className="text-xs text-muted-foreground">Risk Heatmap</Label>
-        </div>
+      <div className="flex items-center gap-2 ml-2 px-2 py-1 glassmorphic rounded border border-white/30">
+        <Layers className="w-3.5 h-3.5 text-muted-foreground" />
+        <Label className="text-xs text-muted-foreground cursor-pointer">Heatmap</Label>
         <Switch
           checked={showHeatmap}
           onCheckedChange={onToggleHeatmap}

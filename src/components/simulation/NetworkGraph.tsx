@@ -10,16 +10,22 @@ interface NetworkGraphProps {
 }
 
 const stateColors: Record<NodeState, string> = {
+  susceptible: '#8B9DC3',
   healthy: '#6B8CAE',
   'at-risk': '#C9A857',
   infected: '#B5636A',
+  vaccinated: '#5C946E',
+  recovered: '#7BA37A',
   collapsed: '#505A64',
 };
 
 const stateLabels: Record<NodeState, string> = {
+  susceptible: 'Susceptible',
   healthy: 'Healthy',
   'at-risk': 'At Risk',
   infected: 'Infected',
+  vaccinated: 'Vaccinated',
+  recovered: 'Recovered',
   collapsed: 'Collapsed',
 };
 
@@ -36,30 +42,49 @@ const drawNode = (
   ctx.save();
   ctx.globalAlpha = opacity;
   
-  // Subtle shadow
+  // Enhanced glow effect
   if (isHovered || isSelected) {
     ctx.shadowColor = color;
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
   }
   
-  // Main circle
+  // Main circle with gradient
+  const gradient = ctx.createRadialGradient(x - size * 0.3, y - size * 0.3, 0, x, y, size);
+  gradient.addColorStop(0, color + 'ff');
+  gradient.addColorStop(0.7, color + 'ee');
+  gradient.addColorStop(1, color + 'cc');
+  
   ctx.beginPath();
   ctx.arc(x, y, size, 0, Math.PI * 2);
-  ctx.fillStyle = color;
+  ctx.fillStyle = gradient;
   ctx.fill();
   
-  // Border
-  ctx.strokeStyle = isSelected ? '#1a1a1a' : 'rgba(255,255,255,0.3)';
-  ctx.lineWidth = isSelected ? 2.5 : 1;
-  ctx.stroke();
-  
-  // Inner highlight
-  if (isHovered) {
+  // Enhanced border with glow
+  if (isSelected) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // Outer glow ring
     ctx.beginPath();
-    ctx.arc(x, y, size - 3, 0, Math.PI * 2);
+    ctx.arc(x, y, size + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = color + '88';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else {
     ctx.strokeStyle = 'rgba(255,255,255,0.4)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
+  }
+  
+  // Inner highlight for depth
+  if (isHovered || isSelected) {
+    ctx.beginPath();
+    ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fill();
   }
   
   ctx.restore();
@@ -178,14 +203,33 @@ export const NetworkGraph = ({
     canvas.style.height = `${rect.height}px`;
     ctx.scale(dpr, dpr);
 
-    // Clean analytical background
-    ctx.fillStyle = '#F8F9FA';
+    // Calculate center positions first
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const radius = Math.min(rect.width, rect.height) * 0.35;
+
+    // Enhanced gradient background
+    const bgGradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
+    bgGradient.addColorStop(0, '#F5F7FA');
+    bgGradient.addColorStop(0.5, '#F8F9FB');
+    bgGradient.addColorStop(1, '#F5F7FA');
+    ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, rect.width, rect.height);
     
-    // Subtle grid
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.03)';
-    ctx.lineWidth = 1;
-    const gridSize = 30;
+    // Subtle radial overlay
+    const radialGradient = ctx.createRadialGradient(
+      centerX, centerY, 0,
+      centerX, centerY, Math.max(rect.width, rect.height) * 0.6
+    );
+    radialGradient.addColorStop(0, 'rgba(107, 140, 174, 0.02)');
+    radialGradient.addColorStop(1, 'rgba(107, 140, 174, 0)');
+    ctx.fillStyle = radialGradient;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    
+    // Refined grid
+    ctx.strokeStyle = 'rgba(107, 140, 174, 0.06)';
+    ctx.lineWidth = 0.5;
+    const gridSize = 40;
     
     for (let x = 0; x < rect.width; x += gridSize) {
       ctx.beginPath();
@@ -202,9 +246,6 @@ export const NetworkGraph = ({
     }
 
     // Calculate node positions
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const radius = Math.min(rect.width, rect.height) * 0.35;
 
     nodes.forEach((node, i) => {
       if (!nodePositionsRef.current.has(node.id)) {
@@ -235,14 +276,21 @@ export const NetworkGraph = ({
         
         // Check if infection is actively spreading along this edge
         const isSpreadingInfection = 
-          (sourceNode.state === 'infected' && (targetNode.state === 'healthy' || targetNode.state === 'at-risk')) ||
-          (targetNode.state === 'infected' && (sourceNode.state === 'healthy' || sourceNode.state === 'at-risk'));
+          (sourceNode.state === 'infected' && (targetNode.state === 'healthy' || targetNode.state === 'susceptible' || targetNode.state === 'at-risk')) ||
+          (targetNode.state === 'infected' && (sourceNode.state === 'healthy' || sourceNode.state === 'susceptible' || sourceNode.state === 'at-risk'));
+        
+        // Check if edge is connected to vaccinated/recovered nodes (these edges should be dimmed/removed)
+        const hasImmuneNode = sourceNode.state === 'vaccinated' || targetNode.state === 'vaccinated' ||
+                              sourceNode.state === 'recovered' || targetNode.state === 'recovered';
         
         // Calculate opacity and color based on node states
         let opacity = 0.15;
         let color = 'rgba(80, 90, 100';
         
-        if (sourceNode.state === 'collapsed' || targetNode.state === 'collapsed') {
+        if (hasImmuneNode) {
+          // Dimmed edges for vaccinated/recovered nodes
+          opacity = 0.03;
+        } else if (sourceNode.state === 'collapsed' || targetNode.state === 'collapsed') {
           opacity = 0.05;
         } else if (isSpreadingInfection) {
           // Active infection spread - use red/orange pulsing effect

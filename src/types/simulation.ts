@@ -1,4 +1,4 @@
-export type NodeState = 'healthy' | 'at-risk' | 'infected' | 'collapsed';
+export type NodeState = 'susceptible' | 'healthy' | 'at-risk' | 'infected' | 'vaccinated' | 'recovered' | 'collapsed';
 
 export interface NodeHistory {
   time: number;
