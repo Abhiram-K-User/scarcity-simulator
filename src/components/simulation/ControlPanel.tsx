@@ -22,10 +22,10 @@ interface SliderControlProps {
 }
 
 const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled, description }: SliderControlProps) => (
-  <div className="space-y-2">
+  <div className="space-y-1.5 group">
     <div className="flex justify-between items-baseline">
-      <Label className="text-xs font-medium text-foreground">{label}</Label>
-      <span className="text-xs font-mono text-muted-foreground">
+      <Label className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">{label}</Label>
+      <span className="text-xs font-mono text-muted-foreground bg-gradient-to-r from-primary/10 to-transparent px-2 py-0.5 rounded font-semibold">
         {value.toFixed(step < 1 ? 2 : 0)}{unit}
       </span>
     </div>
@@ -36,10 +36,10 @@ const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled,
       step={step}
       onValueChange={([v]) => onChange(v)}
       disabled={disabled}
-      className="cursor-pointer"
+      className="cursor-pointer transition-all duration-300"
     />
     {description && (
-      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+      <p className="text-[10px] text-muted-foreground leading-relaxed opacity-80">{description}</p>
     )}
   </div>
 );
@@ -50,12 +50,11 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
   };
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="analytical-header mb-3">
-          Transmission
-        </h3>
-        <div className="space-y-4">
+    <div className="space-y-3">
+      {/* Transmission - Compact */}
+      <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+        <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Transmission</h3>
+        <div className="space-y-3">
           <SliderControl
             label="Infection Rate"
             value={params.infectionRate}
@@ -64,7 +63,6 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={0.01}
             onChange={(v) => updateParam('infectionRate', v)}
             disabled={disabled}
-            description="Per-contact transmission probability"
           />
           <SliderControl
             label="Recovery Rate"
@@ -74,7 +72,6 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={0.01}
             onChange={(v) => updateParam('recoveryRate', v)}
             disabled={disabled}
-            description="Recovery probability per step"
           />
           <SliderControl
             label="Death Rate"
@@ -84,16 +81,14 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={0.001}
             onChange={(v) => updateParam('deathRate', v)}
             disabled={disabled}
-            description="Mortality rate among infected"
           />
         </div>
       </div>
 
-      <div className="border-t border-border pt-5">
-        <h3 className="analytical-header mb-3">
-          Resources
-        </h3>
-        <div className="space-y-4">
+      {/* Resources - Compact */}
+      <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+        <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Resources</h3>
+        <div className="space-y-3">
           <SliderControl
             label="Available Units"
             value={params.totalResources}
@@ -102,7 +97,6 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={1}
             onChange={(v) => updateParam('totalResources', v)}
             disabled={disabled}
-            description="Medical intervention capacity"
           />
           <SliderControl
             label="Priority Weight"
@@ -112,63 +106,55 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             step={0.1}
             onChange={(v) => updateParam('priorityWeight', v)}
             disabled={disabled}
-            description="Balance: region priority vs. connectivity"
           />
         </div>
       </div>
 
-      <div className="border-t border-border pt-5">
-        <h3 className="analytical-header mb-3">
-          Initial State
-        </h3>
-        <div className="space-y-4">
-          <SliderControl
-            label="Initial Infected"
-            value={params.initialInfected}
-            min={1}
-            max={4}
-            step={1}
-            onChange={(v) => updateParam('initialInfected', v)}
-            disabled={disabled}
-          />
-          <SliderControl
-            label="Step Interval"
-            value={params.timeStepSpeed}
-            min={200}
-            max={2000}
-            step={100}
-            unit="ms"
-            onChange={(v) => updateParam('timeStepSpeed', v)}
-          />
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-5">
-        <h3 className="analytical-header mb-3">
-          Model Options
-        </h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-xs font-medium text-foreground">Uncertainty</Label>
-              <p className="text-xs text-muted-foreground">Add stochastic variation</p>
-            </div>
-            <Switch
-              checked={params.uncertaintyEnabled}
-              onCheckedChange={(v) => updateParam('uncertaintyEnabled', v)}
+      {/* Initial State & Options - Compact 2-column */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Initial</h3>
+          <div className="space-y-3">
+            <SliderControl
+              label="Infected"
+              value={params.initialInfected}
+              min={1}
+              max={4}
+              step={1}
+              onChange={(v) => updateParam('initialInfected', v)}
               disabled={disabled}
+            />
+            <SliderControl
+              label="Speed"
+              value={params.timeStepSpeed}
+              min={200}
+              max={2000}
+              step={100}
+              unit="ms"
+              onChange={(v) => updateParam('timeStepSpeed', v)}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="text-xs font-medium text-foreground">Delayed Effects</Label>
-              <p className="text-xs text-muted-foreground">Resource allocation lag</p>
+        </div>
+
+        <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Options</h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-1.5 rounded hover:bg-white/40 transition-all duration-300">
+              <Label className="text-[10px] font-medium text-foreground cursor-pointer">Uncertainty</Label>
+              <Switch
+                checked={params.uncertaintyEnabled}
+                onCheckedChange={(v) => updateParam('uncertaintyEnabled', v)}
+                disabled={disabled}
+              />
             </div>
-            <Switch
-              checked={params.delayedEffects}
-              onCheckedChange={(v) => updateParam('delayedEffects', v)}
-              disabled={disabled}
-            />
+            <div className="flex items-center justify-between p-1.5 rounded hover:bg-white/40 transition-all duration-300">
+              <Label className="text-[10px] font-medium text-foreground cursor-pointer">Delayed</Label>
+              <Switch
+                checked={params.delayedEffects}
+                onCheckedChange={(v) => updateParam('delayedEffects', v)}
+                disabled={disabled}
+              />
+            </div>
           </div>
         </div>
       </div>

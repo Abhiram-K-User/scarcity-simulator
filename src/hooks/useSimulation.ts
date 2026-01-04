@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot, PopulationStats } from '@/types/simulation';
+import { createPriorityQueue } from '@/lib/priorityQueue';
 
 const createDefaultPopStats = (population: number): PopulationStats => ({
   healthy: population,
@@ -22,7 +23,7 @@ const generateInitialNodes = (count: number = 16): SimulationNode[] => {
       id: `node-${i}`,
       name: names[i] || `Region ${i + 1}`,
       population,
-      state: 'healthy' as NodeState,
+      state: 'susceptible' as NodeState,
       priority: Math.random(),
       x: Math.random() * 600 + 100,
       y: Math.random() * 400 + 50,
@@ -114,9 +115,11 @@ export const useSimulation = () => {
 
   const calculateMetrics = useCallback((currentNodes: SimulationNode[]): SimulationMetrics => {
     const infected = currentNodes.filter(n => n.state === 'infected').length;
-    const healthy = currentNodes.filter(n => n.state === 'healthy').length;
+    const healthy = currentNodes.filter(n => n.state === 'healthy' || n.state === 'susceptible').length;
     const atRisk = currentNodes.filter(n => n.state === 'at-risk').length;
     const collapsed = currentNodes.filter(n => n.state === 'collapsed').length;
+    const vaccinated = currentNodes.filter(n => n.state === 'vaccinated').length;
+    const recovered = currentNodes.filter(n => n.state === 'recovered').length;
     const resourcesUsed = currentNodes.reduce((sum, n) => sum + n.resourceAllocated, 0);
     const stress = calculateStress(currentNodes);
     
@@ -148,6 +151,7 @@ export const useSimulation = () => {
       const newNodes = [...prevNodes];
       const adjacencyList = new Map<string, string[]>();
       
+      // Build adjacency list from edges
       edges.forEach(edge => {
         if (!adjacencyList.has(edge.source)) adjacencyList.set(edge.source, []);
         if (!adjacencyList.has(edge.target)) adjacencyList.set(edge.target, []);
@@ -155,14 +159,107 @@ export const useSimulation = () => {
         adjacencyList.get(edge.target)!.push(edge.source);
       });
       
-      // Calculate risk scores and spread infection from infected nodes to neighbors
+      // ===== BFS-BASED EPIDEMIC SPREAD =====
+      // Use breadth-first search to spread infection in waves from infected nodes
+      const visited = new Set<string>();
+      const infectionQueue: string[] = [];
+      const nodesToUpdate: { index: number; newState: NodeState; history: any }[] = [];
+      
+      // Initialize BFS queue with all currently infected nodes
       newNodes.forEach((node, index) => {
-        const neighbors = adjacencyList.get(node.id) || [];
+        if (node.state === 'infected') {
+          infectionQueue.push(node.id);
+          visited.add(node.id);
+        }
+      });
+      
+      // BFS traversal for infection spread
+      while (infectionQueue.length > 0) {
+        const currentNodeId = infectionQueue.shift()!;
+        const neighbors = adjacencyList.get(currentNodeId) || [];
         
-        // Skip collapsed nodes - they can't transition
+        // Process each neighbor of the infected node
+        for (const neighborId of neighbors) {
+          if (visited.has(neighborId)) continue;
+          
+          const neighborIndex = newNodes.findIndex(n => n.id === neighborId);
+          if (neighborIndex === -1) continue;
+          
+          const neighbor = newNodes[neighborIndex];
+          
+          // Skip if node is vaccinated, recovered, or collapsed
+          if (neighbor.state === 'vaccinated' || neighbor.state === 'recovered' || neighbor.state === 'collapsed') {
+            visited.add(neighborId);
+            continue;
+          }
+          
+          // Calculate spread probability
+          const spreadChance = params.infectionRate * 0.8;
+          
+          if (neighbor.state === 'susceptible' && Math.random() < spreadChance) {
+            // Susceptible → At-risk transition
+            visited.add(neighborId);
+            nodesToUpdate.push({
+              index: neighborIndex,
+              newState: 'at-risk',
+              history: {
+                time: timeRef.current,
+                state: 'at-risk',
+                resourceAllocated: neighbor.resourceAllocated,
+                infectedPop: neighbor.populationStats.infected,
+                deaths: neighbor.cumulativeDeaths,
+                recoveries: neighbor.cumulativeRecoveries,
+              }
+            });
+          } else if (neighbor.state === 'healthy' && Math.random() < spreadChance) {
+            // Healthy → At-risk transition
+            visited.add(neighborId);
+            nodesToUpdate.push({
+              index: neighborIndex,
+              newState: 'at-risk',
+              history: {
+                time: timeRef.current,
+                state: 'at-risk',
+                resourceAllocated: neighbor.resourceAllocated,
+                infectedPop: neighbor.populationStats.infected,
+                deaths: neighbor.cumulativeDeaths,
+                recoveries: neighbor.cumulativeRecoveries,
+              }
+            });
+          }
+        }
+      }
+      
+      // Apply BFS-discovered state transitions
+      nodesToUpdate.forEach(({ index, newState, history }) => {
+        const node = newNodes[index];
+        const neighbors = adjacencyList.get(node.id) || [];
+        const riskScore = neighbors.filter(nId => 
+          newNodes.find(n => n.id === nId)?.state === 'infected'
+        ).length / Math.max(1, neighbors.length);
+        
+        // Give at-risk nodes a small initial infected population
+        const newPopStats = { ...node.populationStats };
+        if (newState === 'at-risk') {
+          const initialInfected = Math.floor(node.population * (0.01 + Math.random() * 0.02)); // 1-3% initially infected
+          newPopStats.healthy -= initialInfected;
+          newPopStats.infected = initialInfected;
+        }
+        
+        newNodes[index] = {
+          ...node,
+          state: newState,
+          riskScore,
+          populationStats: newPopStats,
+          history: [...node.history, { ...history, infectedPop: newPopStats.infected }]
+        };
+      });
+      
+      // Update risk scores for all nodes
+      newNodes.forEach((node, index) => {
         if (node.state === 'collapsed') return;
         
-        // Get infected neighbors (nodes that can spread infection)
+        const neighbors = adjacencyList.get(node.id) || [];
         const infectedNeighbors = neighbors.filter(nId => {
           const n = newNodes.find(n => n.id === nId);
           return n?.state === 'infected';
@@ -170,66 +267,72 @@ export const useSimulation = () => {
         
         const riskScore = infectedNeighbors.length / Math.max(1, neighbors.length);
         newNodes[index] = { ...node, riskScore };
-        
-        if (node.state === 'healthy') {
-          // Healthy nodes become at-risk if they have infected neighbors
-          if (infectedNeighbors.length > 0) {
-            // Higher spread chance with more infected neighbors
-            const spreadChance = params.infectionRate * (0.5 + infectedNeighbors.length * 0.3);
-            if (Math.random() < spreadChance) {
-              newNodes[index] = { 
-                ...newNodes[index], 
-                state: 'at-risk',
-                history: [...node.history, { 
-                  time: timeRef.current, 
-                  state: 'at-risk', 
-                  resourceAllocated: node.resourceAllocated,
-                  infectedPop: node.populationStats.infected,
-                  deaths: node.cumulativeDeaths,
-                  recoveries: node.cumulativeRecoveries,
-                }]
-              };
-            }
-          }
-        }
       });
       
-      // Resource allocation - protect at-risk nodes
-      const atRiskNodes = newNodes
-        .filter(n => n.state === 'at-risk')
-        .sort((a, b) => {
-          const aConnections = adjacencyList.get(a.id)?.length || 0;
-          const bConnections = adjacencyList.get(b.id)?.length || 0;
-          const aScore = a.priority * params.priorityWeight + (aConnections / 10) * (1 - params.priorityWeight);
-          const bScore = b.priority * params.priorityWeight + (bConnections / 10) * (1 - params.priorityWeight);
-          return bScore - aScore;
-        });
+      // ===== PRIORITY QUEUE-BASED VACCINE ALLOCATION =====
+      // Use MaxHeap for efficient greedy vaccine allocation
+      const atRiskNodes = newNodes.filter(n => n.state === 'at-risk');
+      
+      // Create priority queue with scoring function
+      const priorityQueue = createPriorityQueue(atRiskNodes, (node) => {
+        const connections = adjacencyList.get(node.id)?.length || 0;
+        return node.priority * params.priorityWeight + (connections / 10) * (1 - params.priorityWeight);
+      });
       
       const currentResources = newNodes.reduce((sum, n) => sum + n.resourceAllocated, 0);
       const availableResources = Math.max(0, params.totalResources - currentResources);
       
-      // Allocate resources to at-risk nodes
-      for (let i = 0; i < Math.min(availableResources, atRiskNodes.length); i++) {
-        const nodeIndex = newNodes.findIndex(n => n.id === atRiskNodes[i].id);
-        if (nodeIndex !== -1) {
-          const delay = params.delayedEffects ? (Math.random() < 0.4) : false;
-          if (!delay) {
-            const node = newNodes[nodeIndex];
-            newNodes[nodeIndex] = { 
-              ...node, 
+      // ===== GRAPH TOPOLOGY UPDATE =====
+      // Allocate vaccines and isolate vaccinated nodes by removing their edges
+      const vaccinatedNodeIds = new Set<string>();
+      
+      for (let i = 0; i < availableResources && !priorityQueue.isEmpty(); i++) {
+        const nodeToVaccinate = priorityQueue.extractMax();
+        if (!nodeToVaccinate) break;
+        
+        const nodeIndex = newNodes.findIndex(n => n.id === nodeToVaccinate.id);
+        if (nodeIndex === -1) continue;
+        
+        const delay = params.delayedEffects ? (Math.random() < 0.4) : false;
+        if (!delay) {
+          const node = newNodes[nodeIndex];
+          vaccinatedNodeIds.add(node.id);
+          
+          // Preserve population stats when vaccinating
+          newNodes[nodeIndex] = { 
+            ...node, 
+            resourceAllocated: 1,
+            state: 'vaccinated',
+            populationStats: { ...node.populationStats }, // Explicitly preserve stats
+            cumulativeDeaths: node.cumulativeDeaths,
+            cumulativeRecoveries: node.cumulativeRecoveries,
+            history: [...node.history, { 
+              time: timeRef.current, 
+              state: 'vaccinated', 
               resourceAllocated: 1,
-              state: 'healthy',
-              history: [...node.history, { 
-                time: timeRef.current, 
-                state: 'healthy', 
-                resourceAllocated: 1,
-                infectedPop: node.populationStats.infected,
-                deaths: node.cumulativeDeaths,
-                recoveries: node.cumulativeRecoveries,
-              }]
-            };
-          }
+              infectedPop: node.populationStats.infected,
+              deaths: node.cumulativeDeaths,
+              recoveries: node.cumulativeRecoveries,
+            }]
+          };
         }
+      }
+      
+      // Remove edges connected to vaccinated nodes (graph topology change)
+      if (vaccinatedNodeIds.size > 0) {
+        setEdges(prevEdges => {
+          return prevEdges.filter(edge => 
+            !vaccinatedNodeIds.has(edge.source) && !vaccinatedNodeIds.has(edge.target)
+          );
+        });
+        
+        // Update adjacency list to reflect topology changes
+        vaccinatedNodeIds.forEach(nodeId => {
+          adjacencyList.delete(nodeId);
+        });
+        adjacencyList.forEach((neighbors, nodeId) => {
+          adjacencyList.set(nodeId, neighbors.filter(nId => !vaccinatedNodeIds.has(nId)));
+        });
       }
       
       // Process infections, recoveries, and deaths at population level
@@ -239,7 +342,9 @@ export const useSimulation = () => {
         let newDeaths = 0;
         let newRecoveries = 0;
         
-        if (node.state === 'infected' || node.populationStats.infected > 0) {
+        // Process deaths and recoveries for any node with infected population
+        // This includes both 'infected' and 'at-risk' nodes
+        if ((node.state === 'infected' || node.state === 'at-risk') && node.populationStats.infected > 0) {
           // Process deaths from infected population
           const deathCount = Math.floor(currentStats.infected * (params.deathRate + uncertainty * 0.01));
           if (deathCount > 0 && currentStats.infected > 0) {
@@ -257,7 +362,7 @@ export const useSimulation = () => {
           }
           
           // Check for collapse (prolonged infection or high death rate)
-          if (node.infectedAt && timeRef.current - node.infectedAt > 5) {
+          if (node.state === 'infected' && node.infectedAt && timeRef.current - node.infectedAt > 5) {
             if (Math.random() < 0.2 || currentStats.dead > node.population * 0.3) {
               newNodes[index] = { 
                 ...node, 
@@ -280,17 +385,17 @@ export const useSimulation = () => {
           }
           
           // Check if region recovered (no more infected)
-          if (currentStats.infected === 0 && node.state === 'infected') {
+          if (currentStats.infected === 0 && (node.state === 'infected' || node.state === 'at-risk')) {
             newNodes[index] = { 
               ...node, 
-              state: 'healthy',
+              state: 'recovered',
               infectedAt: undefined,
               populationStats: currentStats,
               cumulativeDeaths: node.cumulativeDeaths + newDeaths,
               cumulativeRecoveries: node.cumulativeRecoveries + newRecoveries,
               history: [...node.history, { 
                 time: timeRef.current, 
-                state: 'healthy', 
+                state: 'recovered', 
                 resourceAllocated: node.resourceAllocated,
                 infectedPop: 0,
                 deaths: node.cumulativeDeaths + newDeaths,
@@ -309,35 +414,44 @@ export const useSimulation = () => {
           };
         }
         
-        // At-risk nodes become infected from neighbor pressure
-        if (node.state === 'at-risk') {
+        // At-risk nodes spread infection within their population
+        if (node.state === 'at-risk' && node.populationStats.infected > 0) {
+          const nodeData = newNodes[index];
+          const stats = { ...nodeData.populationStats };
+          
           const neighbors = adjacencyList.get(node.id) || [];
           const infectedNeighbors = neighbors.filter(
             nId => newNodes.find(n => n.id === nId)?.state === 'infected'
           );
           
-          // Higher chance to become infected based on number of infected neighbors
-          const infectionProb = params.infectionRate * (1 + infectedNeighbors.length * 0.5);
+          // Spread infection within at-risk population (slower than fully infected nodes)
+          const internalSpread = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 0.5);
+          const externalPressure = Math.floor(stats.healthy * params.infectionRate * (infectedNeighbors.length / Math.max(1, neighbors.length)) * 0.3);
+          const newInfections = internalSpread + externalPressure;
           
-          // Resources protect the node
-          if (node.resourceAllocated === 0 && Math.random() < infectionProb) {
-            // Calculate initial infected population
-            const initialInfectedPop = Math.floor(currentStats.healthy * (0.05 + Math.random() * 0.1));
-            currentStats.healthy -= initialInfectedPop;
-            currentStats.infected += initialInfectedPop;
-            
+          if (newInfections > 0) {
+            const actualNew = Math.min(newInfections, stats.healthy);
+            stats.healthy -= actualNew;
+            stats.infected += actualNew;
+            newNodes[index] = {
+              ...nodeData,
+              populationStats: stats,
+            };
+          }
+          
+          // Transition to fully infected state when infection reaches critical threshold
+          if (stats.infected > nodeData.population * 0.15) { // 15% threshold
             newNodes[index] = { 
-              ...node, 
+              ...newNodes[index], 
               state: 'infected',
               infectedAt: timeRef.current,
-              populationStats: currentStats,
-              history: [...node.history, { 
+              history: [...newNodes[index].history, { 
                 time: timeRef.current, 
                 state: 'infected', 
-                resourceAllocated: node.resourceAllocated,
-                infectedPop: currentStats.infected,
-                deaths: node.cumulativeDeaths,
-                recoveries: node.cumulativeRecoveries,
+                resourceAllocated: nodeData.resourceAllocated,
+                infectedPop: stats.infected,
+                deaths: nodeData.cumulativeDeaths,
+                recoveries: nodeData.cumulativeRecoveries,
               }]
             };
           }
