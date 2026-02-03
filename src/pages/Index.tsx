@@ -25,6 +25,9 @@ const Index = () => {
     selectNode,
     showHeatmap,
     setShowHeatmap,
+    updateNodeName,
+    currentScenario,
+    applyScenario,
   } = useSimulation();
 
   return (
@@ -113,9 +116,9 @@ const Index = () => {
                 </span>
               </div>
               <div className="aspect-[16/9]">
-                <NetworkGraph 
-                  nodes={nodes} 
-                  edges={edges} 
+                <NetworkGraph
+                  nodes={nodes}
+                  edges={edges}
                   onNodeClick={selectNode}
                   showHeatmap={showHeatmap}
                   selectedNodeId={selectedNode?.id}
@@ -126,9 +129,10 @@ const Index = () => {
             {/* Node Detail Panel */}
             {selectedNode && (
               <div className="animate-slide-in-right">
-                <NodeDetailPanel 
-                  node={selectedNode} 
-                  onClose={() => selectNode(null)} 
+                <NodeDetailPanel
+                  node={selectedNode}
+                  onClose={() => selectNode(null)}
+                  onUpdateName={updateNodeName}
                 />
               </div>
             )}
@@ -143,6 +147,8 @@ const Index = () => {
                 params={params}
                 onChange={setParams}
                 disabled={isRunning && !isPaused}
+                currentScenarioId={currentScenario.id}
+                onSelectScenario={applyScenario}
               />
             </div>
 

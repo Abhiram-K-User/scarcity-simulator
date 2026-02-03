@@ -2,11 +2,15 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { SimulationParams } from '@/types/simulation';
+import { ScenarioSelector } from './ScenarioSelector';
+import { DiseaseScenario } from '@/types/DiseaseScenarios';
 
 interface ControlPanelProps {
   params: SimulationParams;
   onChange: (params: SimulationParams) => void;
   disabled?: boolean;
+  currentScenarioId?: string;
+  onSelectScenario?: (scenario: DiseaseScenario) => void;
 }
 
 interface SliderControlProps {
@@ -44,13 +48,22 @@ const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled,
   </div>
 );
 
-export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) => {
+export const ControlPanel = ({ params, onChange, disabled, currentScenarioId, onSelectScenario }: ControlPanelProps) => {
   const updateParam = <K extends keyof SimulationParams>(key: K, value: SimulationParams[K]) => {
     onChange({ ...params, [key]: value });
   };
 
   return (
     <div className="space-y-3">
+      {/* Scenario Selector */}
+      {currentScenarioId && onSelectScenario && (
+        <ScenarioSelector
+          currentScenarioId={currentScenarioId}
+          onSelectScenario={onSelectScenario}
+          disabled={disabled}
+        />
+      )}
+
       {/* Transmission - Compact */}
       <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
         <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Transmission</h3>
@@ -77,7 +90,7 @@ export const ControlPanel = ({ params, onChange, disabled }: ControlPanelProps) 
             label="Death Rate"
             value={params.deathRate}
             min={0.001}
-            max={0.1}
+            max={0.15}
             step={0.001}
             onChange={(v) => updateParam('deathRate', v)}
             disabled={disabled}

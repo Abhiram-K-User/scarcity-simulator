@@ -41,52 +41,63 @@ const drawNode = (
 ) => {
   ctx.save();
   ctx.globalAlpha = opacity;
-  
-  // Enhanced glow effect
+
+  // Enhanced glow effect with stronger shadows
   if (isHovered || isSelected) {
     ctx.shadowColor = color;
-    ctx.shadowBlur = 20;
+    ctx.shadowBlur = isSelected ? 25 : 20;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
   }
-  
-  // Main circle with gradient
-  const gradient = ctx.createRadialGradient(x - size * 0.3, y - size * 0.3, 0, x, y, size);
+
+  // More vibrant gradient for main circle
+  const gradient = ctx.createRadialGradient(x - size * 0.35, y - size * 0.35, 0, x, y, size);
   gradient.addColorStop(0, color + 'ff');
-  gradient.addColorStop(0.7, color + 'ee');
-  gradient.addColorStop(1, color + 'cc');
-  
+  gradient.addColorStop(0.5, color + 'f5');
+  gradient.addColorStop(0.8, color + 'dd');
+  gradient.addColorStop(1, color + 'bb');
+
   ctx.beginPath();
   ctx.arc(x, y, size, 0, Math.PI * 2);
   ctx.fillStyle = gradient;
   ctx.fill();
-  
+
   // Enhanced border with glow
   if (isSelected) {
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 3.5;
     ctx.stroke();
-    
-    // Outer glow ring
+
+    // Outer glow ring with animation
     ctx.beginPath();
-    ctx.arc(x, y, size + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = color + '88';
-    ctx.lineWidth = 2;
+    ctx.arc(x, y, size + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = color + 'aa';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  } else if (isHovered) {
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
   } else {
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.8;
     ctx.stroke();
   }
-  
-  // Inner highlight for depth
+
+  // Inner highlight for depth - more pronounced
   if (isHovered || isSelected) {
     ctx.beginPath();
-    ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.arc(x - size * 0.3, y - size * 0.3, size * 0.35, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fill();
+  } else {
+    // Subtle highlight even when not hovered
+    ctx.beginPath();
+    ctx.arc(x - size * 0.25, y - size * 0.25, size * 0.25, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.fill();
   }
-  
+
   ctx.restore();
 };
 
@@ -103,11 +114,11 @@ const drawHeatmapOverlay = (
   );
   gradient.addColorStop(0, 'rgba(181, 99, 106, 0.1)');
   gradient.addColorStop(1, 'rgba(181, 99, 106, 0)');
-  
+
   nodes.forEach(node => {
     const pos = nodePositions.get(node.id);
     if (!pos) return;
-    
+
     const intensity = node.riskScore || 0;
     if (intensity > 0) {
       const riskGradient = ctx.createRadialGradient(
@@ -122,12 +133,12 @@ const drawHeatmapOverlay = (
   });
 };
 
-export const NetworkGraph = ({ 
-  nodes, 
-  edges, 
-  onNodeClick, 
+export const NetworkGraph = ({
+  nodes,
+  edges,
+  onNodeClick,
   showHeatmap = false,
-  selectedNodeId 
+  selectedNodeId
 }: NetworkGraphProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -141,10 +152,10 @@ export const NetworkGraph = ({
     for (const node of nodes) {
       const pos = nodePositionsRef.current.get(node.id);
       if (!pos) continue;
-      
+
       const size = Math.sqrt(node.population / 100000) * 4 + 12;
       const distance = Math.sqrt((mouseX - pos.x) ** 2 + (mouseY - pos.y) ** 2);
-      
+
       if (distance < size + 4) {
         return node;
       }
@@ -155,14 +166,14 @@ export const NetworkGraph = ({
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
     const node = getNodeAtPosition(mouseX, mouseY);
     setHoveredNode(node?.id || null);
-    
+
     if (node) {
       setTooltip({ x: e.clientX, y: e.clientY, node });
       canvas.style.cursor = 'pointer';
@@ -175,11 +186,11 @@ export const NetworkGraph = ({
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
+
     const node = getNodeAtPosition(mouseX, mouseY);
     if (node && onNodeClick) {
       onNodeClick(node.id);
@@ -196,7 +207,7 @@ export const NetworkGraph = ({
 
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    
+
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     canvas.style.width = `${rect.width}px`;
@@ -215,7 +226,7 @@ export const NetworkGraph = ({
     bgGradient.addColorStop(1, '#F5F7FA');
     ctx.fillStyle = bgGradient;
     ctx.fillRect(0, 0, rect.width, rect.height);
-    
+
     // Subtle radial overlay
     const radialGradient = ctx.createRadialGradient(
       centerX, centerY, 0,
@@ -225,19 +236,19 @@ export const NetworkGraph = ({
     radialGradient.addColorStop(1, 'rgba(107, 140, 174, 0)');
     ctx.fillStyle = radialGradient;
     ctx.fillRect(0, 0, rect.width, rect.height);
-    
+
     // Refined grid
     ctx.strokeStyle = 'rgba(107, 140, 174, 0.06)';
     ctx.lineWidth = 0.5;
     const gridSize = 40;
-    
+
     for (let x = 0; x < rect.width; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
       ctx.lineTo(x, rect.height);
       ctx.stroke();
     }
-    
+
     for (let y = 0; y < rect.height; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(0, y);
@@ -269,24 +280,24 @@ export const NetworkGraph = ({
       const targetPos = nodePositionsRef.current.get(edge.target);
       const sourceNode = nodes.find(n => n.id === edge.source);
       const targetNode = nodes.find(n => n.id === edge.target);
-      
+
       if (sourcePos && targetPos && sourceNode && targetNode) {
         const isHighlighted = hoveredNode === edge.source || hoveredNode === edge.target ||
-                             selectedNodeId === edge.source || selectedNodeId === edge.target;
-        
+          selectedNodeId === edge.source || selectedNodeId === edge.target;
+
         // Check if infection is actively spreading along this edge
-        const isSpreadingInfection = 
+        const isSpreadingInfection =
           (sourceNode.state === 'infected' && (targetNode.state === 'healthy' || targetNode.state === 'susceptible' || targetNode.state === 'at-risk')) ||
           (targetNode.state === 'infected' && (sourceNode.state === 'healthy' || sourceNode.state === 'susceptible' || sourceNode.state === 'at-risk'));
-        
+
         // Check if edge is connected to vaccinated/recovered nodes (these edges should be dimmed/removed)
         const hasImmuneNode = sourceNode.state === 'vaccinated' || targetNode.state === 'vaccinated' ||
-                              sourceNode.state === 'recovered' || targetNode.state === 'recovered';
-        
+          sourceNode.state === 'recovered' || targetNode.state === 'recovered';
+
         // Calculate opacity and color based on node states
         let opacity = 0.15;
         let color = 'rgba(80, 90, 100';
-        
+
         if (hasImmuneNode) {
           // Dimmed edges for vaccinated/recovered nodes
           opacity = 0.03;
@@ -302,25 +313,25 @@ export const NetworkGraph = ({
         } else if (isHighlighted) {
           opacity = 0.4;
         }
-        
+
         ctx.strokeStyle = `${color}, ${opacity})`;
         ctx.lineWidth = isSpreadingInfection ? edge.weight * 4 + 1 : edge.weight * 3 + 0.5;
         ctx.beginPath();
         ctx.moveTo(sourcePos.x, sourcePos.y);
         ctx.lineTo(targetPos.x, targetPos.y);
         ctx.stroke();
-        
+
         // Draw animated particles along spreading edges
         if (isSpreadingInfection) {
           const infectedPos = sourceNode.state === 'infected' ? sourcePos : targetPos;
           const targetPosEnd = sourceNode.state === 'infected' ? targetPos : sourcePos;
-          
+
           // Multiple particles moving along the edge
           for (let p = 0; p < 3; p++) {
             const progress = ((Date.now() / 600 + p * 0.33) % 1);
             const particleX = infectedPos.x + (targetPosEnd.x - infectedPos.x) * progress;
             const particleY = infectedPos.y + (targetPosEnd.y - infectedPos.y) * progress;
-            
+
             ctx.beginPath();
             ctx.arc(particleX, particleY, 3, 0, Math.PI * 2);
             ctx.fillStyle = `rgba(181, 99, 106, ${0.8 - progress * 0.5})`;
@@ -339,7 +350,7 @@ export const NetworkGraph = ({
       const color = stateColors[node.state];
       const isHovered = hoveredNode === node.id;
       const isSelected = selectedNodeId === node.id;
-      
+
       // Fade collapsed nodes
       let opacity = 1;
       if (node.state === 'collapsed') {
@@ -348,13 +359,20 @@ export const NetworkGraph = ({
 
       drawNode(ctx, pos.x, pos.y, size, color, isHovered, isSelected, opacity);
 
-      // Label
-      ctx.fillStyle = 'rgba(30, 40, 50, 0.7)';
-      ctx.font = '10px IBM Plex Sans, sans-serif';
+      // Improved label with shadow for better readability
+      ctx.save();
+      ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+
+      ctx.fillStyle = isHovered || isSelected ? 'rgba(20, 30, 40, 0.95)' : 'rgba(30, 40, 50, 0.75)';
+      ctx.font = isHovered || isSelected ? 'bold 11px IBM Plex Sans, sans-serif' : '600 10px IBM Plex Sans, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
       const label = node.name.split(' ')[1] || node.name;
-      ctx.fillText(label, pos.x, pos.y + size + 4);
+      ctx.fillText(label, pos.x, pos.y + size + 6);
+      ctx.restore();
     });
   }, [nodes, edges, hoveredNode, selectedNodeId, showHeatmap]);
 
@@ -384,8 +402,8 @@ export const NetworkGraph = ({
 
   return (
     <div ref={containerRef} className="relative w-full h-full min-h-[400px] rounded overflow-hidden border border-border">
-      <canvas 
-        ref={canvasRef} 
+      <canvas
+        ref={canvasRef}
         className="absolute inset-0"
         onMouseMove={handleMouseMove}
         onClick={handleClick}
@@ -394,40 +412,49 @@ export const NetworkGraph = ({
           setTooltip(null);
         }}
       />
-      
+
       {/* Tooltip */}
       {tooltip && (
-        <div 
+        <div
           className="fixed z-50 bg-card border border-border rounded px-3 py-2 shadow-md pointer-events-none"
-          style={{ 
-            left: tooltip.x + 12, 
+          style={{
+            left: tooltip.x + 12,
             top: tooltip.y - 10,
           }}
         >
-          <p className="text-sm font-medium text-foreground">{tooltip.node.name}</p>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm font-semibold text-foreground mb-0.5">{tooltip.node.name}</p>
+          <p className="text-xs text-muted-foreground mb-1">
             Pop: {(tooltip.node.population / 1000).toFixed(0)}K
           </p>
-          <p className="text-xs" style={{ color: stateColors[tooltip.node.state] }}>
+          <p className="text-xs font-medium mb-1.5" style={{ color: stateColors[tooltip.node.state] }}>
             {stateLabels[tooltip.node.state]}
           </p>
-          <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-            <p>Infected: {(tooltip.node.populationStats.infected / 1000).toFixed(1)}K</p>
-            <p>Deaths: {tooltip.node.cumulativeDeaths.toLocaleString()}</p>
-            <p>Recovered: {tooltip.node.cumulativeRecoveries.toLocaleString()}</p>
+          <div className="text-xs text-muted-foreground space-y-0.5 border-t border-border/50 pt-1.5">
+            <p className="flex justify-between gap-3">
+              <span>Infected:</span>
+              <span className="font-mono font-medium">{(tooltip.node.populationStats.infected / 1000).toFixed(1)}K</span>
+            </p>
+            <p className="flex justify-between gap-3">
+              <span>Deaths:</span>
+              <span className="font-mono font-medium text-stress-critical">{tooltip.node.cumulativeDeaths.toLocaleString()}</span>
+            </p>
+            <p className="flex justify-between gap-3">
+              <span>Recovered:</span>
+              <span className="font-mono font-medium text-stress-low">{tooltip.node.cumulativeRecoveries.toLocaleString()}</span>
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1 opacity-60">
+          <p className="text-[10px] text-muted-foreground mt-2 opacity-70 italic">
             Click for details
           </p>
         </div>
       )}
-      
+
       {/* Legend */}
       <div className="absolute bottom-3 left-3 flex gap-4 bg-card/90 backdrop-blur-sm rounded px-3 py-2 border border-border">
         {(['healthy', 'at-risk', 'infected', 'collapsed'] as NodeState[]).map(state => (
           <div key={state} className="flex items-center gap-1.5">
-            <div 
-              className="w-2.5 h-2.5 rounded-full" 
+            <div
+              className="w-2.5 h-2.5 rounded-full"
               style={{ backgroundColor: stateColors[state] }}
             />
             <span className="text-xs text-muted-foreground">{stateLabels[state]}</span>

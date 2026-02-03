@@ -1,22 +1,30 @@
 import { SimulationNode, NodeState } from '@/types/simulation';
-import { X } from 'lucide-react';
+import { X, Edit2, Check, XIcon } from 'lucide-react';
+import { useState } from 'react';
 
 interface NodeDetailPanelProps {
   node: SimulationNode | null;
   onClose: () => void;
+  onUpdateName?: (nodeId: string, newName: string) => void;
 }
 
 const stateColors: Record<NodeState, string> = {
+  susceptible: '#8B9DC3',
   healthy: '#6B8CAE',
   'at-risk': '#C9A857',
   infected: '#B5636A',
+  vaccinated: '#5C946E',
+  recovered: '#7BA37A',
   collapsed: '#505A64',
 };
 
 const stateLabels: Record<NodeState, string> = {
+  susceptible: 'Susceptible',
   healthy: 'Healthy',
   'at-risk': 'At Risk',
   infected: 'Infected',
+  vaccinated: 'Vaccinated',
+  recovered: 'Recovered',
   collapsed: 'Collapsed',
 };
 
@@ -26,7 +34,10 @@ const formatNumber = (num: number): string => {
   return num.toString();
 };
 
-export const NodeDetailPanel = ({ node, onClose }: NodeDetailPanelProps) => {
+export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanelProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState('');
+
   if (!node) return null;
 
   const stats = node.populationStats;
@@ -35,14 +46,78 @@ export const NodeDetailPanel = ({ node, onClose }: NodeDetailPanelProps) => {
   const recoveredPercent = ((stats.recovered / node.population) * 100).toFixed(1);
   const deadPercent = ((stats.dead / node.population) * 100).toFixed(1);
 
+  const handleStartEdit = () => {
+    setEditedName(node.name);
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (editedName.trim() && onUpdateName) {
+      onUpdateName(node.id, editedName.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedName('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSaveEdit();
+    } else if (e.key === 'Escape') {
+      handleCancelEdit();
+    }
+  };
+
   return (
     <div className="analytical-panel p-3 animate-slide-in-right">
       <div className="flex items-start justify-between mb-2">
-        <div>
-          <h3 className="text-sm font-semibold text-foreground">{node.name}</h3>
-          <p className="text-[10px] text-muted-foreground">Region Details</p>
+        <div className="flex-1">
+          {isEditing ? (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                className="text-sm font-semibold text-foreground bg-white/80 border border-primary/30 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all flex-1"
+                autoFocus
+                maxLength={50}
+              />
+              <button
+                onClick={handleSaveEdit}
+                className="p-1.5 hover:bg-stress-low/20 rounded transition-all duration-300 group glassmorphic"
+                title="Save"
+              >
+                <Check className="w-3.5 h-3.5 text-stress-low group-hover:scale-110 transition-transform" />
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                className="p-1.5 hover:bg-destructive/20 rounded transition-all duration-300 group glassmorphic"
+                title="Cancel"
+              >
+                <XIcon className="w-3.5 h-3.5 text-destructive group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-foreground">{node.name}</h3>
+              {onUpdateName && (
+                <button
+                  onClick={handleStartEdit}
+                  className="p-1 hover:bg-primary/10 rounded transition-all duration-300 group opacity-60 hover:opacity-100"
+                  title="Edit name"
+                >
+                  <Edit2 className="w-3 h-3 text-primary group-hover:scale-110 transition-transform" />
+                </button>
+              )}
+            </div>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-0.5">Region Details</p>
         </div>
-        <button 
+        <button
           onClick={onClose}
           className="p-1 hover:bg-white/60 rounded transition-all duration-300 group hover:scale-110 transform glassmorphic"
         >
@@ -55,9 +130,9 @@ export const NodeDetailPanel = ({ node, onClose }: NodeDetailPanelProps) => {
         <div className="grid grid-cols-2 gap-2">
           <div className="flex items-center justify-between py-1.5 px-2 glassmorphic rounded border border-white/30">
             <span className="text-[10px] text-muted-foreground font-medium">Status</span>
-            <span 
+            <span
               className="text-[10px] font-semibold px-2 py-0.5 rounded transition-all duration-300"
-              style={{ 
+              style={{
                 backgroundColor: `${stateColors[node.state]}30`,
                 color: stateColors[node.state],
                 border: `1px solid ${stateColors[node.state]}40`
@@ -107,24 +182,24 @@ export const NodeDetailPanel = ({ node, onClose }: NodeDetailPanelProps) => {
               <span className="font-mono font-medium" style={{ color: stats.dead > 0 ? stateColors.collapsed : 'inherit' }}>{deadPercent}%</span>
             </div>
           </div>
-          
+
           {/* Population bar */}
           <div className="mt-2 h-2 bg-muted/30 rounded-full overflow-hidden flex shadow-inner">
-            <div 
+            <div
               className="h-full transition-all duration-500"
-              style={{ width: `${healthyPercent}%`, backgroundColor: stateColors.healthy }} 
+              style={{ width: `${healthyPercent}%`, backgroundColor: stateColors.healthy }}
             />
-            <div 
+            <div
               className="h-full transition-all duration-500"
-              style={{ width: `${infectedPercent}%`, backgroundColor: stateColors.infected }} 
+              style={{ width: `${infectedPercent}%`, backgroundColor: stateColors.infected }}
             />
-            <div 
+            <div
               className="h-full transition-all duration-500 bg-stress-low"
-              style={{ width: `${recoveredPercent}%` }} 
+              style={{ width: `${recoveredPercent}%` }}
             />
-            <div 
+            <div
               className="h-full transition-all duration-500"
-              style={{ width: `${deadPercent}%`, backgroundColor: stateColors.collapsed }} 
+              style={{ width: `${deadPercent}%`, backgroundColor: stateColors.collapsed }}
             />
           </div>
         </div>
@@ -165,8 +240,8 @@ export const NodeDetailPanel = ({ node, onClose }: NodeDetailPanelProps) => {
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">History</span>
             <div className="mt-1.5 space-y-1 max-h-20 overflow-y-auto">
               {node.history.slice(-4).reverse().map((h, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="flex items-center justify-between text-[10px] py-1 px-1.5 glassmorphic rounded border border-white/20 hover:border-white/40 transition-all duration-300"
                 >
                   <span className="text-muted-foreground font-medium">t={h.time}</span>

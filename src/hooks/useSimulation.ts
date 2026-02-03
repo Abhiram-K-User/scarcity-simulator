@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot, PopulationStats } from '@/types/simulation';
 import { createPriorityQueue } from '@/lib/priorityQueue';
+import { DiseaseScenario, getDefaultScenario } from '@/types/DiseaseScenarios';
 
 const createDefaultPopStats = (population: number): PopulationStats => ({
   healthy: population,
@@ -9,8 +10,8 @@ const createDefaultPopStats = (population: number): PopulationStats => ({
   dead: 0,
 });
 
-const generateInitialNodes = (count: number = 16): SimulationNode[] => {
-  const names = [
+const generateInitialNodes = (count: number = 16, customNameMap?: Map<string, string>): SimulationNode[] => {
+  const defaultNames = [
     'Metro Alpha', 'District Beta', 'Zone Gamma', 'Sector Delta',
     'Region Epsilon', 'Area Zeta', 'Hub Eta', 'Node Theta',
     'Cluster Iota', 'Zone Kappa', 'Sector Lambda', 'Region Mu',
@@ -19,9 +20,13 @@ const generateInitialNodes = (count: number = 16): SimulationNode[] => {
 
   return Array.from({ length: count }, (_, i) => {
     const population = Math.floor(Math.random() * 900000) + 100000;
+    const nodeId = `node-${i}`;
+    const defaultName = defaultNames[i] || `Region ${i + 1}`;
+    const name = customNameMap?.get(nodeId) || defaultName;
+
     return {
-      id: `node-${i}`,
-      name: names[i] || `Region ${i + 1}`,
+      id: nodeId,
+      name,
       population,
       state: 'susceptible' as NodeState,
       priority: Math.random(),
@@ -101,8 +106,10 @@ export const useSimulation = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [selectedNode, setSelectedNode] = useState<SimulationNode | null>(null);
+  const [currentScenario, setCurrentScenario] = useState<DiseaseScenario>(() => getDefaultScenario());
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [customNames, setCustomNames] = useState<Map<string, string>>(new Map());
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeRef = useRef(0);
@@ -369,17 +376,22 @@ export const useSimulation = () => {
         // Process deaths and recoveries for any node with infected population
         // This includes both 'infected' and 'at-risk' nodes
         if ((node.state === 'infected' || node.state === 'at-risk') && node.populationStats.infected > 0) {
-          // Process deaths from infected population
-          const deathCount = Math.floor(currentStats.infected * (params.deathRate + uncertainty * 0.01));
+          // Calculate acceleration factor for end-game speedup
+          const healthyRatio = currentStats.healthy / node.population;
+          const accelerationFactor = healthyRatio < 0.3 ? Math.max(1, 3 - (healthyRatio / 0.3) * 2) : 1;
+
+          // Process deaths from infected population with acceleration
+          const baseDeathRate = params.deathRate + uncertainty * 0.01;
+          const deathCount = Math.floor(currentStats.infected * baseDeathRate * accelerationFactor);
           if (deathCount > 0 && currentStats.infected > 0) {
             newDeaths = Math.min(deathCount, currentStats.infected);
             currentStats.infected -= newDeaths;
             currentStats.dead += newDeaths;
           }
 
-          // Process recoveries from infected population (boosted rate for faster resolution)
+          // Process recoveries from infected population with acceleration
           const effectiveRecoveryRate = params.recoveryRate * (1 + (currentStats.infected / node.population) * 0.5);
-          const recoveryCount = Math.floor(currentStats.infected * (effectiveRecoveryRate + uncertainty));
+          const recoveryCount = Math.floor(currentStats.infected * (effectiveRecoveryRate + uncertainty) * accelerationFactor);
           if (recoveryCount > 0 && currentStats.infected > 0) {
             newRecoveries = Math.min(recoveryCount, currentStats.infected);
             currentStats.infected -= newRecoveries;
@@ -449,9 +461,9 @@ export const useSimulation = () => {
             nId => newNodes.find(n => n.id === nId)?.state === 'infected'
           );
 
-          // Spread infection within at-risk population (slower than fully infected nodes)
-          const internalSpread = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 0.5);
-          const externalPressure = Math.floor(stats.healthy * params.infectionRate * (infectedNeighbors.length / Math.max(1, neighbors.length)) * 0.3);
+          // Increased spread infection within at-risk population to prevent slowdown
+          const internalSpread = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 0.8);
+          const externalPressure = Math.floor(stats.healthy * params.infectionRate * (infectedNeighbors.length / Math.max(1, neighbors.length)) * 0.5);
           const newInfections = internalSpread + externalPressure;
 
           if (newInfections > 0) {
@@ -465,7 +477,7 @@ export const useSimulation = () => {
           }
 
           // Transition to fully infected state when infection reaches critical threshold
-          if (stats.infected > nodeData.population * 0.15) { // 15% threshold
+          if (stats.infected > nodeData.population * 0.12) { // Lowered from 15% to 12% for faster progression
             newNodes[index] = {
               ...newNodes[index],
               state: 'infected',
@@ -482,12 +494,21 @@ export const useSimulation = () => {
           }
         }
 
-        // Spread infection within already infected nodes
+        // Spread infection within already infected nodes - INCREASED RATES
         if (newNodes[index].state === 'infected') {
           const nodeData = newNodes[index];
           const stats = { ...nodeData.populationStats };
-          // Spread within population
-          const newInfections = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 2);
+
+          // Calculate acceleration for infections too
+          const healthyRatio = stats.healthy / nodeData.population;
+          const accelerationFactor = healthyRatio < 0.3 ? Math.max(1, 2.5 - (healthyRatio / 0.3) * 1.5) : 1;
+
+          // Increased multiplier from 2 to 2.5 for more aggressive spread, with acceleration
+          const baseSpread = Math.floor(stats.healthy * params.infectionRate * (stats.infected / nodeData.population) * 2.5 * accelerationFactor);
+          // Add minimum spread to prevent complete stagnation
+          const minSpread = stats.healthy > 0 && stats.infected > 100 ? Math.max(1, Math.floor(stats.healthy * 0.001)) : 0;
+          const newInfections = Math.max(baseSpread, minSpread);
+
           if (newInfections > 0) {
             const actualNew = Math.min(newInfections, stats.healthy);
             stats.healthy -= actualNew;
@@ -599,6 +620,9 @@ export const useSimulation = () => {
       intervalRef.current = null;
     }
 
+    // Clear custom names on reset
+    setCustomNames(new Map());
+
     const newNodes = generateInitialNodes();
     setNodes(newNodes);
     setEdges(generateEdges(newNodes));
@@ -687,6 +711,42 @@ export const useSimulation = () => {
     }
   }, [params.timeStepSpeed, isRunning, isPaused, step]);
 
+  const applyScenario = useCallback((scenario: DiseaseScenario) => {
+    if (isRunning && !isPaused) {
+      // Don't allow changing scenarios while simulation is running
+      return;
+    }
+
+    setCurrentScenario(scenario);
+
+    // Apply scenario parameters
+    setParams(prev => ({
+      ...prev,
+      ...scenario.params,
+    }));
+  }, [isRunning, isPaused]);
+
+  const updateNodeName = useCallback((nodeId: string, newName: string) => {
+    // Update the custom names map
+    setCustomNames(prev => {
+      const updated = new Map(prev);
+      updated.set(nodeId, newName);
+      return updated;
+    });
+
+    // Update the current nodes array
+    setNodes(prevNodes =>
+      prevNodes.map(node =>
+        node.id === nodeId ? { ...node, name: newName } : node
+      )
+    );
+
+    // Update selected node if it's the one being renamed
+    setSelectedNode(prev =>
+      prev?.id === nodeId ? { ...prev, name: newName } : prev
+    );
+  }, []);
+
   return {
     nodes,
     edges,
@@ -706,5 +766,8 @@ export const useSimulation = () => {
     selectNode,
     showHeatmap,
     setShowHeatmap,
+    updateNodeName,
+    currentScenario,
+    applyScenario,
   };
 };
