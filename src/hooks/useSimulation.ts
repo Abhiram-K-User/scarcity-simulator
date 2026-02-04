@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot, PopulationStats } from '@/types/simulation';
+import { SimulationNode, SimulationEdge, SimulationParams, SimulationMetrics, HistoryPoint, NodeState, Snapshot, PopulationStats, NodeHistory } from '@/types/simulation';
 import { createPriorityQueue } from '@/lib/priorityQueue';
 import { DiseaseScenario, getDefaultScenario } from '@/types/DiseaseScenarios';
 
@@ -193,7 +193,7 @@ export const useSimulation = () => {
       // Use breadth-first search to spread infection in waves from infected nodes
       const visited = new Set<string>();
       const infectionQueue: string[] = [];
-      const nodesToUpdate: { index: number; newState: NodeState; history: any }[] = [];
+      const nodesToUpdate: { index: number; newState: NodeState; history: NodeHistory }[] = [];
 
       // Initialize BFS queue with all currently infected nodes
       newNodes.forEach((node, index) => {
@@ -374,14 +374,19 @@ export const useSimulation = () => {
         let newRecoveries = 0;
 
         // Process deaths and recoveries for any node with infected population
-        // This includes both 'infected' and 'at-risk' nodes
-        if ((node.state === 'infected' || node.state === 'at-risk') && node.populationStats.infected > 0) {
+        // This includes 'infected', 'at-risk', AND 'vaccinated' nodes (vaccinated nodes still have infected people who need to recover/die)
+        if ((node.state === 'infected' || node.state === 'at-risk' || node.state === 'vaccinated') && node.populationStats.infected > 0) {
           // Calculate acceleration factor for end-game speedup
           const healthyRatio = currentStats.healthy / node.population;
           const accelerationFactor = healthyRatio < 0.3 ? Math.max(1, 3 - (healthyRatio / 0.3) * 2) : 1;
 
+          // Vaccinated nodes get treatment benefits: lower death rate, higher recovery rate
+          const isVaccinated = node.state === 'vaccinated';
+          const deathRateMultiplier = isVaccinated ? 0.3 : 1; // 70% reduction in deaths for vaccinated
+          const recoveryRateMultiplier = isVaccinated ? 2.5 : 1; // 150% faster recovery for vaccinated
+
           // Process deaths from infected population with acceleration
-          const baseDeathRate = params.deathRate + uncertainty * 0.01;
+          const baseDeathRate = (params.deathRate + uncertainty * 0.01) * deathRateMultiplier;
           const deathCount = Math.floor(currentStats.infected * baseDeathRate * accelerationFactor);
           if (deathCount > 0 && currentStats.infected > 0) {
             newDeaths = Math.min(deathCount, currentStats.infected);
@@ -390,7 +395,7 @@ export const useSimulation = () => {
           }
 
           // Process recoveries from infected population with acceleration
-          const effectiveRecoveryRate = params.recoveryRate * (1 + (currentStats.infected / node.population) * 0.5);
+          const effectiveRecoveryRate = params.recoveryRate * (1 + (currentStats.infected / node.population) * 0.5) * recoveryRateMultiplier;
           const recoveryCount = Math.floor(currentStats.infected * (effectiveRecoveryRate + uncertainty) * accelerationFactor);
           if (recoveryCount > 0 && currentStats.infected > 0) {
             newRecoveries = Math.min(recoveryCount, currentStats.infected);
