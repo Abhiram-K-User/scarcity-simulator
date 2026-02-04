@@ -69,7 +69,7 @@ const StressBar = ({ stress }: { stress: number }) => {
         <span className="text-xs text-foreground font-semibold px-2.5 py-1 rounded bg-white/50">{getStressLabel(stress)}</span>
       </div>
       <div className="h-2 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm">
-        <div 
+        <div
           className={`h-full transition-all duration-700 ${getStressColor(stress)} shadow-lg ${getStressShadow(stress)} animate-pulse`}
           style={{ width: `${Math.min(100, stress * 100)}%` }}
         />
@@ -78,12 +78,12 @@ const StressBar = ({ stress }: { stress: number }) => {
   );
 };
 
-export const MetricsDashboard = ({ 
-  metrics, 
-  history, 
-  totalResources, 
+export const MetricsDashboard = ({
+  metrics,
+  history,
+  totalResources,
   snapshots,
-  onTakeSnapshot 
+  onTakeSnapshot
 }: MetricsDashboardProps) => {
   return (
     <div className="space-y-2.5">
@@ -94,24 +94,24 @@ export const MetricsDashboard = ({
       <div>
         <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Region State</h3>
         <div className="grid grid-cols-4 gap-1.5">
-          <MetricCard 
-            label="Healthy" 
-            value={metrics.totalHealthy} 
+          <MetricCard
+            label="Healthy"
+            value={metrics.totalHealthy}
             color={stateColors.healthy}
           />
-          <MetricCard 
-            label="At Risk" 
-            value={metrics.totalAtRisk} 
+          <MetricCard
+            label="At Risk"
+            value={metrics.totalAtRisk}
             color={stateColors.atRisk}
           />
-          <MetricCard 
-            label="Infected" 
-            value={metrics.totalInfected} 
+          <MetricCard
+            label="Infected"
+            value={metrics.totalInfected}
             color={stateColors.infected}
           />
-          <MetricCard 
-            label="Collapsed" 
-            value={metrics.totalCollapsed} 
+          <MetricCard
+            label="Collapsed"
+            value={metrics.totalCollapsed}
             color={stateColors.collapsed}
           />
         </div>
@@ -121,23 +121,23 @@ export const MetricsDashboard = ({
       <div>
         <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Population Impact</h3>
         <div className="grid grid-cols-4 gap-1.5">
-          <MetricCard 
-            label="Infected" 
-            value={formatNumber(metrics.totalInfectedPop)} 
+          <MetricCard
+            label="Infected"
+            value={formatNumber(metrics.totalInfectedPop)}
             color={stateColors.infected}
           />
-          <MetricCard 
-            label="Deaths" 
-            value={formatNumber(metrics.totalDeaths)} 
+          <MetricCard
+            label="Deaths"
+            value={formatNumber(metrics.totalDeaths)}
             color={stateColors.collapsed}
           />
-          <MetricCard 
-            label="Recovered" 
-            value={formatNumber(metrics.totalRecoveries)} 
+          <MetricCard
+            label="Recovered"
+            value={formatNumber(metrics.totalRecoveries)}
             color={stateColors.recovered}
           />
-          <MetricCard 
-            label="Total" 
+          <MetricCard
+            label="Total"
             value={formatNumber(metrics.totalPopulation)}
           />
         </div>
@@ -148,12 +148,12 @@ export const MetricsDashboard = ({
         <div>
           <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Resources</h3>
           <div className="grid grid-cols-2 gap-1.5">
-            <MetricCard 
-              label="Allocated" 
+            <MetricCard
+              label="Allocated"
               value={`${metrics.resourcesUsed}/${totalResources}`}
             />
-            <MetricCard 
-              label="Affected" 
+            <MetricCard
+              label="Affected"
               value={metrics.totalInfected + metrics.totalCollapsed}
             />
           </div>
@@ -161,13 +161,13 @@ export const MetricsDashboard = ({
         <div>
           <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Timeline</h3>
           <div className="grid grid-cols-2 gap-1.5">
-            <MetricCard 
-              label="Peak" 
+            <MetricCard
+              label="Peak"
               value={metrics.peakInfection}
               subtext={`t=${metrics.peakTime}`}
             />
-            <MetricCard 
-              label="Duration" 
+            <MetricCard
+              label="Duration"
               value={`${metrics.currentTime}`}
             />
           </div>
@@ -179,35 +179,35 @@ export const MetricsDashboard = ({
         <div className="glassmorphic rounded-lg p-2.5 border border-white/30">
           <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1">Disease Progression Over Time</h3>
           <p className="text-[9px] text-muted-foreground mb-2 leading-relaxed">
-            Tracks the number of infected individuals, deaths, and recoveries across simulation timesteps. 
+            Tracks the number of infected individuals, deaths, and recoveries across simulation timesteps.
             Rising infection curves indicate epidemic spread, while recovery trends show containment effectiveness.
           </p>
-          <div className="h-32 -ml-1">
+          <div className="h-32 pl-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history}>
+              <AreaChart data={history} margin={{ left: 5, right: 10, top: 5, bottom: 5 }}>
                 <defs>
                   <linearGradient id="infectedGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor={stateColors.infected} stopOpacity={0}/>
+                    <stop offset="5%" stopColor={stateColors.infected} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={stateColors.infected} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis 
-                  dataKey="time" 
+                <XAxis
+                  dataKey="time"
                   tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
                   axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
                   tickLine={false}
                   label={{ value: 'Time Steps', position: 'insideBottom', offset: -5, fontSize: 10, fill: 'hsl(220, 10%, 50%)' }}
                 />
-                <YAxis 
+                <YAxis
                   tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
                   axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
                   tickLine={false}
-                  width={35}
+                  width={55}
                   tickFormatter={(value) => formatNumber(value)}
                   label={{ value: 'Population', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'hsl(220, 10%, 50%)' }}
                 />
-                <Tooltip 
-                  contentStyle={{ 
+                <Tooltip
+                  contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     backdropFilter: 'blur(12px)',
                     border: '1px solid rgba(255, 255, 255, 0.5)',
@@ -218,25 +218,25 @@ export const MetricsDashboard = ({
                   }}
                   formatter={(value: number, name: string) => [formatNumber(value), name]}
                 />
-                <Area 
-                  type="monotone" 
-                  dataKey="infectedPop" 
+                <Area
+                  type="monotone"
+                  dataKey="infectedPop"
                   stroke={stateColors.infected}
                   fill="url(#infectedGradient)"
                   strokeWidth={2}
                   name="Infected"
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="deaths" 
+                <Line
+                  type="monotone"
+                  dataKey="deaths"
                   stroke={stateColors.collapsed}
                   strokeWidth={1.5}
                   dot={false}
                   name="Deaths"
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="recoveries" 
+                <Line
+                  type="monotone"
+                  dataKey="recoveries"
                   stroke={stateColors.recovered}
                   strokeWidth={1.5}
                   dot={false}
