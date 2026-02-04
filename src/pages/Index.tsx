@@ -46,7 +46,7 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-3 animate-scale-in">
               <div className={`w-2 h-2 rounded-full ${isRunning && !isPaused ? 'bg-stress-low animate-subtle-pulse shadow-lg shadow-stress-low/50' : 'bg-muted-foreground'} transition-all duration-300`} />
-              <span className="text-xs text-muted-foreground font-mono tracking-wider font-medium px-3 py-1 glassmorphic rounded-full">
+              <span className="text-xs text-muted-foreground tracking-wider font-semibold px-3 py-1 glassmorphic rounded-full">
                 {isRunning ? (isPaused ? 'PAUSED' : 'ACTIVE') : 'READY'}
               </span>
             </div>
@@ -76,19 +76,19 @@ const Index = () => {
           <div className="analytical-panel p-3 flex items-center justify-around gap-4">
             <div className="text-center">
               <div className="text-xs text-muted-foreground mb-0.5">Infected Pop</div>
-              <div className="text-lg font-mono font-semibold text-stress-high">{metrics.totalInfectedPop.toLocaleString()}</div>
+              <div className="text-lg font-semibold text-stress-high">{metrics.totalInfectedPop.toLocaleString()}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground mb-0.5">Deaths</div>
-              <div className="text-lg font-mono font-semibold text-stress-critical">{metrics.totalDeaths.toLocaleString()}</div>
+              <div className="text-lg font-semibold text-stress-critical">{metrics.totalDeaths.toLocaleString()}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground mb-0.5">Recoveries</div>
-              <div className="text-lg font-mono font-semibold text-stress-low">{metrics.totalRecoveries.toLocaleString()}</div>
+              <div className="text-lg font-semibold text-stress-low">{metrics.totalRecoveries.toLocaleString()}</div>
             </div>
             <div className="text-center">
               <div className="text-xs text-muted-foreground mb-0.5">System Stress</div>
-              <div className="text-lg font-mono font-semibold" style={{ color: metrics.systemStress > 0.75 ? 'hsl(0, 50%, 45%)' : metrics.systemStress > 0.5 ? 'hsl(0, 40%, 55%)' : 'hsl(150, 30%, 50%)' }}>
+              <div className="text-lg font-semibold" style={{ color: metrics.systemStress > 0.75 ? 'hsl(0, 50%, 45%)' : metrics.systemStress > 0.5 ? 'hsl(0, 40%, 55%)' : 'hsl(150, 30%, 50%)' }}>
                 {(metrics.systemStress * 100).toFixed(0)}%
               </div>
             </div>
@@ -98,7 +98,7 @@ const Index = () => {
           <div className="analytical-panel p-3 flex items-center gap-3">
             <div className="text-center">
               <div className="text-xs text-muted-foreground mb-0.5">Time</div>
-              <div className="text-lg font-mono font-semibold">t={metrics.currentTime}</div>
+              <div className="text-lg font-semibold">t={metrics.currentTime}</div>
             </div>
           </div>
         </div>
@@ -111,7 +111,7 @@ const Index = () => {
             <div className="analytical-panel overflow-hidden animate-fade-in">
               <div className="px-3 py-2 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent flex items-center justify-between">
                 <h2 className="text-xs font-medium text-primary/80 uppercase tracking-wider">Network State</h2>
-                <span className="text-xs font-mono text-muted-foreground bg-white/50 px-2 py-0.5 rounded">
+                <span className="text-xs font-semibold text-muted-foreground bg-white/50 px-2 py-0.5 rounded">
                   {nodes.length} regions · {edges.length} connections
                 </span>
               </div>
@@ -166,15 +166,6 @@ const Index = () => {
           </div>
         </div>
       </main>
-
-      {/* Footer */}
-      <footer className="relative z-10 glassmorphic-dark border-t border-white/20 mt-12">
-        <div className="container mx-auto px-6 py-4">
-          <p className="text-xs text-muted-foreground text-center">
-            A systems analysis tool for studying resource allocation under epidemic containment scenarios.
-          </p>
-        </div>
-      </footer>
     </div>
   );
 };

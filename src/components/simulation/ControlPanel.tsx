@@ -29,7 +29,7 @@ const SliderControl = ({ label, value, min, max, step, unit, onChange, disabled,
   <div className="space-y-1.5 group">
     <div className="flex justify-between items-baseline">
       <Label className="text-xs font-medium text-foreground group-hover:text-primary transition-colors">{label}</Label>
-      <span className="text-xs font-mono text-muted-foreground bg-gradient-to-r from-primary/10 to-transparent px-2 py-0.5 rounded font-semibold">
+      <span className="text-xs font-semibold text-muted-foreground bg-gradient-to-r from-primary/10 to-transparent px-2 py-0.5 rounded">
         {value.toFixed(step < 1 ? 2 : 0)}{unit}
       </span>
     </div>
@@ -65,7 +65,7 @@ export const ControlPanel = ({ params, onChange, disabled, currentScenarioId, on
       )}
 
       {/* Transmission - Compact */}
-      <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+      <div className="glassmorphic rounded-lg p-2.5 border border-white/20 dark:border-white/10">
         <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Transmission</h3>
         <div className="space-y-3">
           <SliderControl
@@ -99,7 +99,7 @@ export const ControlPanel = ({ params, onChange, disabled, currentScenarioId, on
       </div>
 
       {/* Resources - Compact */}
-      <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+      <div className="glassmorphic rounded-lg p-2.5 border border-white/20 dark:border-white/10">
         <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Resources</h3>
         <div className="space-y-3">
           <SliderControl
@@ -125,7 +125,7 @@ export const ControlPanel = ({ params, onChange, disabled, currentScenarioId, on
 
       {/* Initial State & Options - Compact 2-column */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+        <div className="glassmorphic rounded-lg p-2.5 border border-white/20 dark:border-white/10">
           <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Initial</h3>
           <div className="space-y-3">
             <SliderControl
@@ -149,7 +149,7 @@ export const ControlPanel = ({ params, onChange, disabled, currentScenarioId, on
           </div>
         </div>
 
-        <div className="glassmorphic rounded-lg p-2.5 border border-primary/10">
+        <div className="glassmorphic rounded-lg p-2.5 border border-white/20 dark:border-white/10">
           <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-2">Options</h3>
           <div className="space-y-2">
             <div className="flex items-center justify-between p-1.5 rounded hover:bg-white/40 transition-all duration-300">

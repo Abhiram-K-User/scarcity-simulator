@@ -101,6 +101,9 @@ export const DISEASE_SCENARIOS: DiseaseScenario[] = [
     },
 ];
 
+// Export for easy access
+export const diseaseScenarios = DISEASE_SCENARIOS;
+
 export const getScenarioById = (id: string): DiseaseScenario | undefined => {
     return DISEASE_SCENARIOS.find(s => s.id === id);
 };

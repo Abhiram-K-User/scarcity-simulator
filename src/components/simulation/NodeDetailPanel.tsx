@@ -82,7 +82,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
                 value={editedName}
                 onChange={(e) => setEditedName(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="text-sm font-semibold text-foreground bg-white/80 border border-primary/30 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all flex-1"
+                className="text-sm font-semibold text-foreground bg-white/80 border border-white/40 dark:border-white/20 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all flex-1"
                 autoFocus
                 maxLength={50}
               />
@@ -143,7 +143,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
           </div>
           <div className="flex items-center justify-between py-1.5 px-2 glassmorphic rounded border border-white/30">
             <span className="text-[10px] text-muted-foreground font-medium">Population</span>
-            <span className="text-[10px] font-mono text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
+            <span className="text-[10px] text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
               {formatNumber(node.population)}
             </span>
           </div>
@@ -158,28 +158,28 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stateColors.healthy }} />
                 <span className="text-muted-foreground">Healthy</span>
               </div>
-              <span className="font-mono font-medium">{healthyPercent}%</span>
+              <span className="font-semibold">{healthyPercent}%</span>
             </div>
             <div className="flex items-center justify-between text-[10px]">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stateColors.infected }} />
                 <span className="text-muted-foreground">Infected</span>
               </div>
-              <span className="font-mono font-medium" style={{ color: stats.infected > 0 ? stateColors.infected : 'inherit' }}>{infectedPercent}%</span>
+              <span className="font-semibold" style={{ color: stats.infected > 0 ? stateColors.infected : 'inherit' }}>{infectedPercent}%</span>
             </div>
             <div className="flex items-center justify-between text-[10px]">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-stress-low" />
                 <span className="text-muted-foreground">Recovered</span>
               </div>
-              <span className="font-mono font-medium">{recoveredPercent}%</span>
+              <span className="font-semibold">{recoveredPercent}%</span>
             </div>
             <div className="flex items-center justify-between text-[10px]">
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: stateColors.collapsed }} />
                 <span className="text-muted-foreground">Deaths</span>
               </div>
-              <span className="font-mono font-medium" style={{ color: stats.dead > 0 ? stateColors.collapsed : 'inherit' }}>{deadPercent}%</span>
+              <span className="font-semibold" style={{ color: stats.dead > 0 ? stateColors.collapsed : 'inherit' }}>{deadPercent}%</span>
             </div>
           </div>
 
@@ -208,19 +208,19 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
         <div className="grid grid-cols-3 gap-1.5">
           <div className="glassmorphic rounded-lg px-2 py-1.5 border border-white/30 text-center">
             <div className="text-[9px] text-muted-foreground mb-0.5">Deaths</div>
-            <div className="text-sm font-mono font-semibold" style={{ color: stateColors.collapsed }}>
+            <div className="text-sm font-semibold" style={{ color: stateColors.collapsed }}>
               {formatNumber(node.cumulativeDeaths)}
             </div>
           </div>
           <div className="glassmorphic rounded-lg px-2 py-1.5 border border-white/30 text-center">
             <div className="text-[9px] text-muted-foreground mb-0.5">Recovered</div>
-            <div className="text-sm font-mono font-semibold text-stress-low">
+            <div className="text-sm font-semibold text-stress-low">
               {formatNumber(node.cumulativeRecoveries)}
             </div>
           </div>
           <div className="glassmorphic rounded-lg px-2 py-1.5 border border-white/30 text-center">
             <div className="text-[9px] text-muted-foreground mb-0.5">Risk</div>
-            <div className="text-sm font-mono font-semibold text-stress-high">
+            <div className="text-sm font-semibold text-stress-high">
               {((node.riskScore || 0) * 100).toFixed(0)}%
             </div>
           </div>
@@ -229,7 +229,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
         {/* Resources */}
         <div className="flex items-center justify-between py-1.5 px-2 glassmorphic rounded border border-white/30">
           <span className="text-[10px] text-muted-foreground font-medium">Resources</span>
-          <span className="text-[10px] font-mono text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
+          <span className="text-[10px] text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
             {node.resourceAllocated} units
           </span>
         </div>
@@ -248,7 +248,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
                   <span className="font-medium text-[9px]" style={{ color: stateColors[h.state] }}>
                     {stateLabels[h.state]}
                   </span>
-                  <span className="text-muted-foreground font-mono text-[9px] bg-white/40 px-1 py-0.5 rounded">
+                  <span className="text-muted-foreground font-semibold text-[9px] bg-white/40 px-1 py-0.5 rounded">
                     {formatNumber(h.infectedPop)}
                   </span>
                 </div>
@@ -263,7 +263,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
             {node.infectedAt !== undefined && (
               <div className="flex items-center justify-between py-1.5 px-2 glassmorphic rounded border border-white/30">
                 <span className="text-[10px] text-muted-foreground font-medium">Infected</span>
-                <span className="text-[10px] font-mono text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
                   t={node.infectedAt}
                 </span>
               </div>
@@ -271,7 +271,7 @@ export const NodeDetailPanel = ({ node, onClose, onUpdateName }: NodeDetailPanel
             {node.collapsedAt !== undefined && (
               <div className="flex items-center justify-between py-1.5 px-2 glassmorphic rounded border border-white/30">
                 <span className="text-[10px] text-muted-foreground font-medium">Collapsed</span>
-                <span className="text-[10px] font-mono text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
+                <span className="text-[10px] text-foreground font-semibold bg-white/50 px-2 py-0.5 rounded">
                   t={node.collapsedAt}
                 </span>
               </div>
