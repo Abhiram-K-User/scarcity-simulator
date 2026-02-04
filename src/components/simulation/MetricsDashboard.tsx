@@ -31,12 +31,12 @@ const formatNumber = (num: number): string => {
 };
 
 const MetricCard = ({ label, value, color, subtext }: MetricCardProps) => (
-  <div className="glassmorphic rounded-lg px-2.5 py-2 border border-white/30 hover-lift group">
-    <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">{label}</div>
-    <div className="text-base font-mono font-semibold transition-all duration-300 group-hover:scale-105" style={{ color: color || 'inherit' }}>
+  <div className="glassmorphic rounded-lg px-3 py-2.5 border border-white/30 hover-lift group">
+    <div className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">{label}</div>
+    <div className="text-xl font-semibold transition-colors duration-300" style={{ color: color || 'inherit' }}>
       {value}
     </div>
-    {subtext && <div className="text-[9px] text-muted-foreground mt-0.5 opacity-80">{subtext}</div>}
+    {subtext && <div className="text-[10px] text-muted-foreground mt-1 opacity-80">{subtext}</div>}
   </div>
 );
 
@@ -63,10 +63,10 @@ const StressBar = ({ stress }: { stress: number }) => {
   };
 
   return (
-    <div className="space-y-1.5 glassmorphic rounded-lg p-2.5 border border-white/30">
+    <div className="space-y-2 glassmorphic rounded-lg p-3 border border-white/30">
       <div className="flex justify-between items-baseline">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">System Stress</span>
-        <span className="text-[10px] font-mono text-foreground font-semibold px-2 py-0.5 rounded bg-white/50">{getStressLabel(stress)}</span>
+        <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">System Stress</span>
+        <span className="text-xs text-foreground font-semibold px-2.5 py-1 rounded bg-white/50">{getStressLabel(stress)}</span>
       </div>
       <div className="h-2 bg-muted/30 rounded-full overflow-hidden backdrop-blur-sm">
         <div 
@@ -177,7 +177,11 @@ export const MetricsDashboard = ({
       {/* Trends Chart - Compact */}
       {history.length > 1 && (
         <div className="glassmorphic rounded-lg p-2.5 border border-white/30">
-          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1.5">Trends</h3>
+          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider mb-1">Disease Progression Over Time</h3>
+          <p className="text-[9px] text-muted-foreground mb-2 leading-relaxed">
+            Tracks the number of infected individuals, deaths, and recoveries across simulation timesteps. 
+            Rising infection curves indicate epidemic spread, while recovery trends show containment effectiveness.
+          </p>
           <div className="h-32 -ml-1">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={history}>
@@ -192,6 +196,7 @@ export const MetricsDashboard = ({
                   tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
                   axisLine={{ stroke: 'hsl(220, 14%, 85%)' }}
                   tickLine={false}
+                  label={{ value: 'Time Steps', position: 'insideBottom', offset: -5, fontSize: 10, fill: 'hsl(220, 10%, 50%)' }}
                 />
                 <YAxis 
                   tick={{ fontSize: 9, fill: 'hsl(220, 10%, 50%)' }}
@@ -199,6 +204,7 @@ export const MetricsDashboard = ({
                   tickLine={false}
                   width={35}
                   tickFormatter={(value) => formatNumber(value)}
+                  label={{ value: 'Population', angle: -90, position: 'insideLeft', fontSize: 10, fill: 'hsl(220, 10%, 50%)' }}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -241,33 +247,6 @@ export const MetricsDashboard = ({
           </div>
         </div>
       )}
-
-      {/* Snapshots - Compact */}
-      <div className="glassmorphic rounded-lg p-2.5 border border-white/30">
-        <div className="flex items-center justify-between mb-1.5">
-          <h3 className="text-[10px] font-medium text-primary/70 uppercase tracking-wider">Snapshots</h3>
-          <button 
-            onClick={onTakeSnapshot}
-            className="text-[10px] text-primary hover:text-primary/80 transition-all duration-300 font-medium px-2 py-1 rounded hover:bg-white/40 border border-primary/20 hover:border-primary/40 hover:scale-105 transform"
-          >
-            + Capture
-          </button>
-        </div>
-        {snapshots.length === 0 ? (
-          <p className="text-[10px] text-muted-foreground">No snapshots</p>
-        ) : (
-          <div className="space-y-1">
-            {snapshots.slice(-3).map((snap, i) => (
-              <div key={i} className="flex items-center justify-between text-[10px] py-1 px-2 glassmorphic rounded border border-white/20 hover:border-white/40 transition-all duration-300 hover-lift">
-                <span className="text-muted-foreground font-medium">{snap.label}</span>
-                <span className="font-mono text-muted-foreground bg-white/40 px-1.5 py-0.5 rounded text-[9px]">
-                  {formatNumber(snap.metrics.totalDeaths)} deaths
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };

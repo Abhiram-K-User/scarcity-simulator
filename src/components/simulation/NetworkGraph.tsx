@@ -175,7 +175,44 @@ export const NetworkGraph = ({
     setHoveredNode(node?.id || null);
 
     if (node) {
-      setTooltip({ x: e.clientX, y: e.clientY, node });
+      // Get the node's actual position on canvas
+      const nodePos = nodePositionsRef.current.get(node.id);
+      if (!nodePos) {
+        setTooltip(null);
+        return;
+      }
+      
+      // Position tooltip next to the node itself
+      const tooltipWidth = 200;
+      const tooltipHeight = 160;
+      const offset = 30; // Distance from node center
+      
+      // Start with position to the right of the node
+      let tooltipX = nodePos.x + offset;
+      let tooltipY = nodePos.y - tooltipHeight / 2; // Center vertically with node
+      
+      // Check if tooltip would go off the right edge
+      if (tooltipX + tooltipWidth > rect.width) {
+        // Position to the left of the node instead
+        tooltipX = nodePos.x - tooltipWidth - offset;
+      }
+      
+      // Check if tooltip would go off the bottom edge
+      if (tooltipY + tooltipHeight > rect.height) {
+        tooltipY = rect.height - tooltipHeight - 10;
+      }
+      
+      // Check if tooltip would go off the top edge
+      if (tooltipY < 10) {
+        tooltipY = 10;
+      }
+      
+      // Check if tooltip would go off the left edge (both positions failed)
+      if (tooltipX < 10) {
+        tooltipX = 10;
+      }
+      
+      setTooltip({ x: rect.left + tooltipX, y: rect.top + tooltipY, node });
       canvas.style.cursor = 'pointer';
     } else {
       setTooltip(null);
@@ -219,26 +256,35 @@ export const NetworkGraph = ({
     const centerY = rect.height / 2;
     const radius = Math.min(rect.width, rect.height) * 0.35;
 
-    // Enhanced gradient background
-    const bgGradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
-    bgGradient.addColorStop(0, '#F5F7FA');
-    bgGradient.addColorStop(0.5, '#F8F9FB');
-    bgGradient.addColorStop(1, '#F5F7FA');
-    ctx.fillStyle = bgGradient;
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    // Background based on theme
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    
+    if (isDarkMode) {
+      // Dark mode: solid black background
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    } else {
+      // Light mode: Enhanced gradient background
+      const bgGradient = ctx.createLinearGradient(0, 0, rect.width, rect.height);
+      bgGradient.addColorStop(0, '#F5F7FA');
+      bgGradient.addColorStop(0.5, '#F8F9FB');
+      bgGradient.addColorStop(1, '#F5F7FA');
+      ctx.fillStyle = bgGradient;
+      ctx.fillRect(0, 0, rect.width, rect.height);
 
-    // Subtle radial overlay
-    const radialGradient = ctx.createRadialGradient(
-      centerX, centerY, 0,
-      centerX, centerY, Math.max(rect.width, rect.height) * 0.6
-    );
-    radialGradient.addColorStop(0, 'rgba(107, 140, 174, 0.02)');
-    radialGradient.addColorStop(1, 'rgba(107, 140, 174, 0)');
-    ctx.fillStyle = radialGradient;
-    ctx.fillRect(0, 0, rect.width, rect.height);
+      // Subtle radial overlay
+      const radialGradient = ctx.createRadialGradient(
+        centerX, centerY, 0,
+        centerX, centerY, Math.max(rect.width, rect.height) * 0.6
+      );
+      radialGradient.addColorStop(0, 'rgba(107, 140, 174, 0.02)');
+      radialGradient.addColorStop(1, 'rgba(107, 140, 174, 0)');
+      ctx.fillStyle = radialGradient;
+      ctx.fillRect(0, 0, rect.width, rect.height);
+    }
 
     // Refined grid
-    ctx.strokeStyle = 'rgba(107, 140, 174, 0.06)';
+    ctx.strokeStyle = isDarkMode ? 'rgba(0, 255, 255, 0.06)' : 'rgba(107, 140, 174, 0.06)';
     ctx.lineWidth = 0.5;
     const gridSize = 40;
 
@@ -296,13 +342,13 @@ export const NetworkGraph = ({
 
         // Calculate opacity and color based on node states
         let opacity = 0.15;
-        let color = 'rgba(80, 90, 100';
+        let color = isDarkMode ? 'rgba(255, 255, 255' : 'rgba(80, 90, 100';
 
         if (hasImmuneNode) {
           // Dimmed edges for vaccinated/recovered nodes
-          opacity = 0.03;
+          opacity = isDarkMode ? 0.2 : 0.03;
         } else if (sourceNode.state === 'collapsed' || targetNode.state === 'collapsed') {
-          opacity = 0.05;
+          opacity = isDarkMode ? 0.25 : 0.05;
         } else if (isSpreadingInfection) {
           // Active infection spread - use red/orange pulsing effect
           color = 'rgba(181, 99, 106';
@@ -311,7 +357,9 @@ export const NetworkGraph = ({
           color = 'rgba(181, 99, 106';
           opacity = 0.3;
         } else if (isHighlighted) {
-          opacity = 0.4;
+          opacity = isDarkMode ? 0.7 : 0.4;
+        } else {
+          opacity = isDarkMode ? 0.5 : 0.15;
         }
 
         ctx.strokeStyle = `${color}, ${opacity})`;
@@ -361,12 +409,22 @@ export const NetworkGraph = ({
 
       // Improved label with shadow for better readability
       ctx.save();
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
-      ctx.shadowBlur = 4;
+      
+      // Use white text in dark mode, dark text in light mode
+      const isDarkMode = document.documentElement.classList.contains('dark');
+      
+      if (isDarkMode) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = isHovered || isSelected ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.9)';
+      } else {
+        ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillStyle = isHovered || isSelected ? 'rgba(20, 30, 40, 0.95)' : 'rgba(30, 40, 50, 0.75)';
+      }
+      
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
-
-      ctx.fillStyle = isHovered || isSelected ? 'rgba(20, 30, 40, 0.95)' : 'rgba(30, 40, 50, 0.75)';
       ctx.font = isHovered || isSelected ? 'bold 11px IBM Plex Sans, sans-serif' : '600 10px IBM Plex Sans, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
@@ -418,8 +476,8 @@ export const NetworkGraph = ({
         <div
           className="fixed z-50 bg-card border border-border rounded px-3 py-2 shadow-md pointer-events-none"
           style={{
-            left: tooltip.x + 12,
-            top: tooltip.y - 10,
+            left: tooltip.x,
+            top: tooltip.y,
           }}
         >
           <p className="text-sm font-semibold text-foreground mb-0.5">{tooltip.node.name}</p>
@@ -432,15 +490,15 @@ export const NetworkGraph = ({
           <div className="text-xs text-muted-foreground space-y-0.5 border-t border-border/50 pt-1.5">
             <p className="flex justify-between gap-3">
               <span>Infected:</span>
-              <span className="font-mono font-medium">{(tooltip.node.populationStats.infected / 1000).toFixed(1)}K</span>
+              <span className="font-semibold">{(tooltip.node.populationStats.infected / 1000).toFixed(1)}K</span>
             </p>
             <p className="flex justify-between gap-3">
               <span>Deaths:</span>
-              <span className="font-mono font-medium text-stress-critical">{tooltip.node.cumulativeDeaths.toLocaleString()}</span>
+              <span className="font-semibold text-stress-critical">{tooltip.node.cumulativeDeaths.toLocaleString()}</span>
             </p>
             <p className="flex justify-between gap-3">
               <span>Recovered:</span>
-              <span className="font-mono font-medium text-stress-low">{tooltip.node.cumulativeRecoveries.toLocaleString()}</span>
+              <span className="font-semibold text-stress-low">{tooltip.node.cumulativeRecoveries.toLocaleString()}</span>
             </p>
           </div>
           <p className="text-[10px] text-muted-foreground mt-2 opacity-70 italic">
@@ -448,19 +506,6 @@ export const NetworkGraph = ({
           </p>
         </div>
       )}
-
-      {/* Legend */}
-      <div className="absolute bottom-3 left-3 flex gap-4 bg-card/90 backdrop-blur-sm rounded px-3 py-2 border border-border">
-        {(['healthy', 'at-risk', 'infected', 'collapsed'] as NodeState[]).map(state => (
-          <div key={state} className="flex items-center gap-1.5">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: stateColors[state] }}
-            />
-            <span className="text-xs text-muted-foreground">{stateLabels[state]}</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };
